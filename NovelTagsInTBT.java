@@ -62,7 +62,7 @@ public class NovelTagsInTBT {
        for (int tag = 0; tag < theTBT.getTagCount(); tag++) { //this loops through the tags in the tbt
            long[] currTag = theTBT.getTag(tag); //This gets the sequence of the current tag.  Tags are stored in binary format as an array of two longs = 128 bits total for 64 bases (A=00,C=01,G=10,T=11)
            int hitMasterTag = myMasterTags.getTagIndex(currTag); //finds index of the tag in the myMasterTags that matches to current tag (negative if tag is novel)
-           int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+           int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
            for (int taxon = 0; taxon < theTaxa.length; taxon++) { //loop through each taxon in the tbt for the current tag
                totalNGBReadsPerTaxon[taxon] += theTBT.getReadCountForTagTaxon(tag, taxon);//adds GBR from the tbt for the current taxon index of the current tag
                if (theTBT.getReadCountForTagTaxon(tag, taxon) > 0) {//adds to tag count
@@ -141,7 +141,7 @@ public class NovelTagsInTBT {
            currTag= myMasterTags.getTag(orderedMasterTags[masterIndexRead][1]);
            hitTagOne= theTBTOne.getTagIndex(currTag);//negative if not present
            hitTagTwo= theTBTTwo.getTagIndex(currTag);//negative if not present
-           refStartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(currTag));//negative if not present
+           refStartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(currTag));//negative if not present
            readCount+= (long) orderedMasterTags[masterIndexRead][0];       
            if (refStartPosOfTag >= 0) {
                masterTagAlign++;
@@ -205,7 +205,7 @@ public class NovelTagsInTBT {
        for (int tag = 0; tag < theTBT.getTagCount(); tag++) { //this loops through the tags in the tbt
            long[] currTag = theTBT.getTag(tag); //This gets the sequence of the current tag.  Tags are stored in binary format as an array of two longs = 128 bits total for 64 bases (A=00,C=01,G=10,T=11)
            int hitMasterTag = myMasterTags.getTagIndex(currTag); //finds index of the tag in the myMasterTags that matches to current tag (negative if tag is novel)
-           int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+           int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
            for (int taxon = 0; taxon < theTaxa.length; taxon++) { //loop through each taxon in the tbt for the current tag
                totalNGBReadsPerTaxon[taxon] += theTBT.getReadCountForTagTaxon(tag, taxon);//adds GBR from the tbt for the current taxon index of the current tag
                if (theTBT.getReadCountForTagTaxon(tag, taxon) > 0) {//adds to tag count
@@ -276,7 +276,7 @@ public class NovelTagsInTBT {
            int[] posArray;
            for (int h=0; h < allNovelTags.getTotalCount(); h++) {
                BW.write(BaseEncoder.getSequenceFromLong(allNovelTags.getTag(h)));
-               if (theTOPM.getPositionMin(theTOPM.getTagIndex(allNovelTags.getTag(h)))>0) {
+               if (theTOPM.getStartPosition(theTOPM.getTagIndex(allNovelTags.getTag(h)))>0) {
                    posArray= theTOPM.getPositionArray(theTOPM.getTagIndex(allNovelTags.getTag(h)));
                    BW.write("\t"+posArray[0]+"\t"+posArray[1]+"\t"+posArray[2]+"\n");
                }
@@ -338,7 +338,7 @@ public class NovelTagsInTBT {
                for (int tag = 0; tag < theTBT.getTagCount(); tag++) { //this loops through the tags in the tbt
                    long[] currTag = theTBT.getTag(tag); //This gets the sequence of the current tag.  Tags are stored in binary format as an array of two longs = 128 bits total for 64 bases (A=00,C=01,G=10,T=11)
                    int hitMasterTag = myMasterTags.getTagIndex(currTag); //finds index of the tag in the myMasterTags that matches to current tag (negative if tag is novel)
-                   int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+                   int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(currTag));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
                    for (int taxon = 0; taxon < theTaxa.length; taxon++) { //loop through each taxon in the tbt for the current tag
                        totalNGBReadsPerTaxon[taxon] += theTBT.getReadCountForTagTaxon(tag, taxon);//adds GBR from the tbt for the current taxon index of the current tag
                        if (theTBT.getReadCountForTagTaxon(tag, taxon) > 0) {//adds to tag count
@@ -452,7 +452,7 @@ public class NovelTagsInTBT {
                for (int tag = 0; tag < theTBT.getTagCount(); tag++) { //loops through the tags and adds reads from tags in current taxon that are shared by the comparison taxon and total reads from the current taxon
                    int currTaxonTagCount= theTBT.getReadCountForTagTaxon(tag, taxa);
                    int matchTaxonTagCount= theTBT.getReadCountForTagTaxon(tag, taxonMatch);
-                   int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(theTBT.getTag(tag)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+                   int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(theTBT.getTag(tag)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
                    totalReadsInCurrTaxon+= currTaxonTagCount;
                    if (B73StartPosOfTag >= 0) {
                            alignedTotalReadsInCurrTaxon+= currTaxonTagCount;
@@ -584,7 +584,7 @@ public class NovelTagsInTBT {
                    int currTagIndex= shuffledTagIndices.get(tag);
                    int currTaxonTagCount= theTBT.getReadCountForTagTaxon(currTagIndex, taxa);
                    int matchTaxonTagCount= theTBT.getReadCountForTagTaxon(currTagIndex, taxonMatch);
-                   int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(theTBT.getTag(currTagIndex)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+                   int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(theTBT.getTag(currTagIndex)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
                    totalReadsofSampledTagsInCurrTaxon+= currTaxonTagCount;
                    if (B73StartPosOfTag >= 0) {
                            alignedTotalReadsInMatchedTagsInCurrTaxon+= currTaxonTagCount;
@@ -721,7 +721,7 @@ public class NovelTagsInTBT {
                    int currTaxonTagCount= theTBT.getReadCountForTagTaxon(currTagIndex, taxa);
                    int matchTaxonTagCount= theTBT.getReadCountForTagTaxon(currTagIndex, taxonMatch);
                    int pairMinTagCount= theTBT.getReadCountForTagTaxon(currTagIndex, pairMin);
-                   int B73StartPosOfTag= theTOPM.getPositionMin(theTOPM.getTagIndex(theTBT.getTag(currTagIndex)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
+                   int B73StartPosOfTag= theTOPM.getStartPosition(theTOPM.getTagIndex(theTBT.getTag(currTagIndex)));//the start position of the current tag in the topm. If the tag did not align to B73 it's negative (but the non-aligned tags should still be present in the TOPM)
                    totalReadsofSampledTagsInMinPair+= pairMinTagCount;
                    if (B73StartPosOfTag >= 0) {
                            alignedTotalReadsInMatchedTagsInMinPair+= pairMinTagCount;

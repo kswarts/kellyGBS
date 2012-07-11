@@ -156,9 +156,9 @@ public class KellyUtils {
            tag= theTBT.getTag(realTBTIndex);
            TOPMIndex= theTOPM.getTagIndex(tag);
            chr=  theTOPM.getChromosome(TOPMIndex);
-           minPos= theTOPM.getPositionMin(TOPMIndex);
+           minPos= theTOPM.getStartPosition(TOPMIndex);
                       
-           if (theTOPM.getPositionMin(TOPMIndex) > -1) {
+           if (theTOPM.getStartPosition(TOPMIndex) > -1) {
                align++;
                taxaNumOfAlignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex); //num taxa that share aligned tag
                stats[division][chr+6]++;//plus 6 because 6 other variables held in array (for chromosomes 0-12)
@@ -260,9 +260,9 @@ public class KellyUtils {
            tag= theTags.getTag(realTBTIndex);
            TOPMIndex= theTOPM.getTagIndex(tag);
            chr=  theTOPM.getChromosome(TOPMIndex);
-           minPos= theTOPM.getPositionMin(TOPMIndex);
+           minPos= theTOPM.getStartPosition(TOPMIndex);
                       
-           if (theTOPM.getPositionMin(TOPMIndex) > -1) {
+           if (theTOPM.getStartPosition(TOPMIndex) > -1) {
                stats[division][chr+6]++;//plus 6 because 6 other variables held in array (for chromosomes 0-12)
                stats[division][1]++;//num of tags that align
                
