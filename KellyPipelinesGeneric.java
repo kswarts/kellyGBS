@@ -279,7 +279,7 @@ public class KellyPipelinesGeneric {
 //        String TOPMTextFile = "H:/70MU0AAXX/newestPipeline/NAM49_50_PstI_mergedTags_min50.topm.txt";
 
        TagsOnPhysicalMap topm = new TagsOnPhysicalMap();
-       topm.readSAMFile(SAMFile);
+       topm.readSAMFile(SAMFile, topm.getTagSizeInLong());
        topm.writeBinaryFile(new File(TOPMFile));
 //        topm.writeTextFile(new File(TOPMTextFile));
    }
