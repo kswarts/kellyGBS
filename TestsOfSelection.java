@@ -1,4 +1,7 @@
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import net.maizegenetics.pal.alignment.*;
 
 /*
@@ -13,9 +16,16 @@ import net.maizegenetics.pal.alignment.*;
 public class TestsOfSelection {
     static boolean slidingWindow;
     static int windowSize;
+    static int startSite;
+    static int endSite;
+    static double windowCov; //harmonic mean
+    static double windowSegSites;
+    static double[] windowSiteFreq;
     static Alignment alignment;
     static Alignment noMissingAlignment;
+    static int segSites;
     static double[] noMissingCoverage;
+    static double[] unfoldedSiteFreq;
     static int outSequence= -1;
     static int[][] codedAlignment;
     
@@ -44,8 +54,8 @@ public class TestsOfSelection {
             }
         mna.clean();
         noMissingAlignment= mna;
-        //remove sites that are missing in the outgroup
-        //generate a new alignment to hold the sequences of interest (minus missing sites) but still including the outgroup
+        //remove a that are missing in the outgroup
+        //generate a new alignment to hold the sequences of interest (minus missing a) but still including the outgroup
         //this is ok because when coded the outgroup will always equal zero
     }
     
@@ -53,12 +63,19 @@ public class TestsOfSelection {
         codedAlignment= new int[noMissingAlignment.getSiteCount()][noMissingAlignment.getSequenceCount()];
         for (int i= 0; i < noMissingAlignment.getSiteCount(); i++) {
             double cov= 0;
+            if (noMissingAlignment.isPolymorphic(i) == true) segSites++;
             for (int j= 0; j < noMissingAlignment.getSequenceCount(); j++) {
                 if (noMissingAlignment.getBaseChar(j, i) == 'N') cov++;
                 else if (noMissingAlignment.getBaseChar(outSequence, i) == noMissingAlignment.getBaseChar(j, i)) codedAlignment[i][j]= 0;
                 else if (noMissingAlignment.getBaseChar(j, i) == 'A' ||noMissingAlignment.getBaseChar(j, i) == 'T'
-                            ||noMissingAlignment.getBaseChar(j, i) == 'C'||noMissingAlignment.getBaseChar(j, i) == 'G') codedAlignment[i][j]= 2;
-                else codedAlignment[i][j]= 1;
+                            ||noMissingAlignment.getBaseChar(j, i) == 'C'||noMissingAlignment.getBaseChar(j, i) == 'G') {
+                    codedAlignment[i][j]= 2;
+                    unfoldedSiteFreq[i]+= 2;
+                }
+                else {
+                    codedAlignment[i][j]= 1;
+                    unfoldedSiteFreq[i]++;
+                }
             }
             noMissingCoverage[i]= cov/(double) noMissingAlignment.getSequenceCount();
         }
@@ -67,8 +84,30 @@ public class TestsOfSelection {
         //can use this to calculate all summary statistics
     }
     
-    public void ThetaW(int[][] codedAlignment) {
+    public static void WindowStats() {
+        windowCov= 0;
+        windowSegSites= 0;
+        //find harmonic mean of the coverage for this window
+        for (int i= startSite;i < endSite; i++) {
+            windowCov+= 1/noMissingCoverage[i];
+            if (noMissingAlignment.isPolymorphic(i) == true) windowSegSites++;
+        }
         
+        double[] xi= Arrays.copyOfRange(unfoldedSiteFreq,startSite,endSite);
+        Arrays.sort(xi);
+        List listXi= Arrays.asList(xi);
+        for (int j= 0;j < noMissingAlignment.getSequenceCount();j++) {
+            windowSiteFreq[j]= listXi.lastIndexOf(j)-listXi.indexOf(j);
+        }
+    }
+    
+    public static double ThetaW() {
+        double a= 0;
+        //scale 2n (number of chromosomes) by coverage
+        for (double n= 1;n < 2*noMissingAlignment.getSequenceCount()*windowCov; n++) {
+            a+=1/n;
+        }
+        return windowSegSites/a;
     }
     
     public void ThetaPi(int[][] codedAlignment) {
