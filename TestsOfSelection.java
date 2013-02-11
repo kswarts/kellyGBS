@@ -1,5 +1,4 @@
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import net.maizegenetics.pal.alignment.*;
@@ -29,7 +28,8 @@ public class TestsOfSelection {
     static int outSequence= -1;
     static int[][] codedAlignment;
     
-    public static void SetReference(String file, String refTaxon) {
+    public static void SetReference(String file, String refTaxon, int window) {
+        window= windowSize;
         try {
             alignment= ReadSequenceAlignmentUtils.readBasicAlignments(file, 30);
         } catch (Exception e) {
@@ -48,9 +48,9 @@ public class TestsOfSelection {
     }
     
     public static void RemoveSitesMissingInOutgroup() {
-        MutableNucleotideAlignment mna= new MutableNucleotideAlignment.getInstance(alignment);
+        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(alignment);
         for (int i= 0;i < mna.getNumLoci();i++) {
-            if (mna.getBaseChar(outSequence, i) == 'N') mna.removeSite(i);
+            if (mna.getBase(outSequence, i) == 'N') mna.removeSite(i);
             }
         mna.clean();
         noMissingAlignment= mna;
@@ -65,10 +65,10 @@ public class TestsOfSelection {
             double cov= 0;
             if (noMissingAlignment.isPolymorphic(i) == true) segSites++;
             for (int j= 0; j < noMissingAlignment.getSequenceCount(); j++) {
-                if (noMissingAlignment.getBaseChar(j, i) == 'N') cov++;
-                else if (noMissingAlignment.getBaseChar(outSequence, i) == noMissingAlignment.getBaseChar(j, i)) codedAlignment[i][j]= 0;
-                else if (noMissingAlignment.getBaseChar(j, i) == 'A' ||noMissingAlignment.getBaseChar(j, i) == 'T'
-                            ||noMissingAlignment.getBaseChar(j, i) == 'C'||noMissingAlignment.getBaseChar(j, i) == 'G') {
+                if (noMissingAlignment.getBase(j, i) == 'N') cov++;
+                else if (noMissingAlignment.getBase(outSequence, i) == noMissingAlignment.getBase(j, i)) codedAlignment[i][j]= 0;
+                else if (noMissingAlignment.getBase(j, i) == 'A' ||noMissingAlignment.getBase(j, i) == 'T'
+                            ||noMissingAlignment.getBase(j, i) == 'C'||noMissingAlignment.getBase(j, i) == 'G') {
                     codedAlignment[i][j]= 2;
                     unfoldedSiteFreq[i]+= 2;
                 }
@@ -92,7 +92,7 @@ public class TestsOfSelection {
             windowCov+= 1/noMissingCoverage[i];
             if (noMissingAlignment.isPolymorphic(i) == true) windowSegSites++;
         }
-        
+        //summarize the unfolded site frequency spectrum for the window
         double[] xi= Arrays.copyOfRange(unfoldedSiteFreq,startSite,endSite);
         Arrays.sort(xi);
         List listXi= Arrays.asList(xi);
@@ -122,7 +122,7 @@ public class TestsOfSelection {
         slidingWindow= true;
         windowSize= 10;
         String fileRoot= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-        SetReference(fileRoot+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10_NAMTripsacum.hmp.txt.gz","tripsacum:C08L7ACXX:6:250048015");
+        SetReference(fileRoot+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10_NAMTripsacum.hmp.txt.gz","tripsacum:C08L7ACXX:6:250048015",20);
         RemoveSitesMissingInOutgroup();
         RecodeAlignment();
         
