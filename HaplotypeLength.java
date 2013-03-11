@@ -12,16 +12,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.maizegenetics.genome.GBS.MutableAlignmentForGBS;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.datatype.IUPACNucleotides;
 
 /**Holds methods for comparing IBS and haplotype length between taxa and within groups of taxa
  *
  * @author kelly
  */
 public class HaplotypeLength {
+    public static String dir;
     public static String fileID;
-    public static String chrNum;
+    public static int chrNum;
+    public static String chrNumString;
     public static String[] chr= {"1","2","3","4","5","6","7","8","9","10"};
 
     /**records IBS between taxa and a reference (with each taxon as the reference, output to separate files) based on number of sites specified in the constructor**/
@@ -444,9 +449,9 @@ public class HaplotypeLength {
     /**like GetIBSBySite, but works based on a set physical position. This one prints out one long output. Is faster than OneOutput2 because saves to memory and prints out at the end. Crashes with large files though because of memory issues**/
     public static void GetIBSByPositionOneOutput(int length) {
 
-        String inHapmapFileName= "/Users/kelly/Documents/GBS/Ames/"+fileID+".hmp";
-        File newFile= new File("/Users/kelly/Documents/GBS/Ames/IBSByPos_"+fileID+"_chr"+chrNum+"_"+length+"_bp.txt");
-        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNum);
+        String inHapmapFileName= dir+fileID+".hmp.txt";
+        File newFile= new File(dir+fileID+"_chr"+chrNumString+"_"+length+"_bp.txt");
+        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNumString);
         int lastPos= inHapmap.getPositionInLocus(inHapmap.getSiteCount()-1);
         int firstPos= inHapmap.getPositionInLocus(0);
         System.out.println("No. of Taxa: "+inHapmap.getSequenceCount()+"\t"+"No of Sites: "+inHapmap.getSiteCount()+"\t"+"last Position: "+lastPos+"\t"+"first Position: "+firstPos);
@@ -584,8 +589,8 @@ public class HaplotypeLength {
     public static void GetIBSByPositionOneOutput2(int length) {
 
         String inHapmapFileName= "/Users/kelly/Documents/GBS/Ames/"+fileID+".hmp";
-        File newFile= new File("/Users/kelly/Documents/GBS/Ames/IBSByPos2_"+fileID+"_chr"+chrNum+"_"+length+"_bp.txt");
-        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNum);
+        File newFile= new File("/Users/kelly/Documents/GBS/Ames/IBSByPos2_"+fileID+"_chr"+chrNumString+"_"+length+"_bp.txt");
+        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNumString);
         int lastPos= inHapmap.getPositionInLocus(inHapmap.getSiteCount()-1);
         int firstPos= inHapmap.getPositionInLocus(0);
         System.out.println("No. of Taxa: "+inHapmap.getSequenceCount()+"\t"+"No of Sites: "+inHapmap.getSiteCount()+"\t"+"last Position: "+lastPos+"\t"+"first Position: "+firstPos);
@@ -725,7 +730,7 @@ public class HaplotypeLength {
      * Output to tab-delimited text file.**/
     public static void GetAverageHaplotypeLength(int iterate) {
         String inHapmapFileName= "/Users/kelly/Documents/GBS/Ames/"+fileID+".hmp";
-        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNum);
+        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNumString);
         int lastSiteIndex= inHapmap.getSiteCount()-1;
         int lastPos= inHapmap.getPositionInLocus(lastSiteIndex);
         int firstPos= inHapmap.getPositionInLocus(0);
@@ -1063,7 +1068,7 @@ public class HaplotypeLength {
         }
         System.out.println("Average Haplotype Length: "+"\t"+((double) totalHapLength/(double) iterate));
 
-        File newFile= new File("/Users/kelly/Documents/GBS/Ames/avgHapLength"+fileID+"chr"+chrNum+iterate+"iterations");
+        File newFile= new File("/Users/kelly/Documents/GBS/Ames/avgHapLength"+fileID+"chr"+chrNumString+iterate+"iterations");
         try {
                 newFile.createNewFile();
                 newFile.setWritable(true);
@@ -1084,8 +1089,8 @@ public class HaplotypeLength {
         public static void CompareHapToRef(String refHapmapName, String refTaxon) {
         String inHapmapFileName= "/Users/kelly/Documents/GBS/Ames/"+fileID+".hmp";
         String refHapmapFileName= "/Users/kelly/Documents/GBS/Ames/"+refHapmapName+".hmp";
-        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNum);
-        Alignment refHapmap= ImportUtils.readFromHapmap(refHapmapFileName,chrNum);
+        Alignment inHapmap= ImportUtils.readFromHapmap(inHapmapFileName,chrNumString);
+        Alignment refHapmap= ImportUtils.readFromHapmap(refHapmapFileName,chrNumString);
         int lastSiteIndex= inHapmap.getSiteCount()-1;
         int lastPos= inHapmap.getPositionInLocus(lastSiteIndex);
         int firstPos= inHapmap.getPositionInLocus(0);
@@ -1283,7 +1288,7 @@ public class HaplotypeLength {
                 }
         
 
-        File newFile= new File("/Users/kelly/Documents/GBS/Ames/compareHapLength2Mismatch"+fileID+"chr"+chrNum+"refTaxon_"+refTaxon);
+        File newFile= new File("/Users/kelly/Documents/GBS/Ames/compareHapLength2Mismatch"+fileID+"chr"+chrNumString+"refTaxon_"+refTaxon);
         try {
                 newFile.createNewFile();
                 newFile.setWritable(true);
@@ -1301,23 +1306,49 @@ public class HaplotypeLength {
         catch (IOException e) {
                 System.out.println(e);
             }
-    }
-
-
+        }
+        
+        public static void MakeConsensus(int count) {
+            String hapmapFileName= dir+fileID+".hmp.txt";
+            String outHapmapFileName= dir+fileID+"Consensus.hmp.txt";
+            Alignment hapmap= ImportUtils.readFromHapmap(hapmapFileName,chrNumString);
+            MutableAlignmentForGBS outHapmap= new MutableAlignmentForGBS(hapmap);
+            
+            for (int i= 0; i < hapmap.getSequenceCount(); i+= count) {
+                for (int j= 0; j < hapmap.getSiteCount(); j++) {
+                    int index= -1;
+                    byte[] SNPs= new byte[2];
+                    for (int k= 0;k < count;k++) {
+                        if (hapmap.getBaseChar(i+k,j)!='N') {
+                            if (index==-1) {
+                                index= i+k;
+                                SNPs[0]= hapmap.getBase(i+k,j);
+                            }
+                            else if (hapmap.getBase(i+k,j)!=SNPs[0]) SNPs[1]= hapmap.getBase(i+k,j);
+                        }
+                    }
+                    byte newBase= IUPACNucleotides.getDegerateSNPByteFromTwoSNPs(SNPs);
+                    outHapmap.setBase(i, j, newBase);
+                }
+            }
+            ExportUtils.writeToHapmap(outHapmap, true, outHapmapFileName, ' ');
+        }
 
     public static void main (String args[]) {
-        fileID= "Ames_MAIZE_NoHets_602K_Chr10";
-        chrNum= "10";
+        dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
+        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8_12SConsensus38";
+        chrNumString= "8";
+        chrNum= 8;
 //        GetIBSBySite(100);
 //        GetIBSByPosition(1000000);
-        GetIBSByPositionOneOutput(1000000);
+        GetIBSByPositionOneOutput(20000);
 //        GetIBSByPositionOneOutput2(1000000);
 //        GetIBSForWholeChromosome();
 //        GetAverageHaplotypeLength(2000000);
 //        CompareHapToRef("SS", "B73");
-
+//         MakeConsensus(5);
 //        for(int a=0; a<10; a++) {
-//            chrNum= chr[a];
+//            chrNumString= chr[a];
 //            GetAverageHaplotypeLength(40000);
 //        }
 //
