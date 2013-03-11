@@ -1318,16 +1318,21 @@ public class HaplotypeLength {
                 for (int j= 0; j < hapmap.getSiteCount(); j++) {
                     int index= -1;
                     byte[] SNPs= new byte[2];
+                    byte het= 0;
                     for (int k= 0;k < count;k++) {
                         if (hapmap.getBaseChar(i+k,j)!='N') {
-                            if (index==-1) {
+                            if (hapmap.getBaseChar(i+k,j)!='A'&&hapmap.getBaseChar(i+k,j)!='C'
+                                    &&hapmap.getBaseChar(i+k,j)!='T'&&hapmap.getBaseChar(i+k,j)!='G'){
+                                het= hapmap.getBase(i+k,j);
+                            } 
+                            else if (index==-1) {
                                 index= i+k;
                                 SNPs[0]= hapmap.getBase(i+k,j);
                             }
                             else if (hapmap.getBase(i+k,j)!=SNPs[0]) SNPs[1]= hapmap.getBase(i+k,j);
                         }
-                    }
-                    byte newBase= IUPACNucleotides.getDegerateSNPByteFromTwoSNPs(SNPs);
+                    } 
+                    byte newBase= (het!=0)?het:IUPACNucleotides.getDegerateSNPByteFromTwoSNPs(SNPs);
                     outHapmap.setBase(i, j, newBase);
                 }
             }
@@ -1336,17 +1341,17 @@ public class HaplotypeLength {
 
     public static void main (String args[]) {
         dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8_12SConsensus38";
+        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8_12S";
         chrNumString= "8";
         chrNum= 8;
 //        GetIBSBySite(100);
 //        GetIBSByPosition(1000000);
-        GetIBSByPositionOneOutput(20000);
+//        GetIBSByPositionOneOutput(20000);
 //        GetIBSByPositionOneOutput2(1000000);
 //        GetIBSForWholeChromosome();
 //        GetAverageHaplotypeLength(2000000);
 //        CompareHapToRef("SS", "B73");
-//         MakeConsensus(5);
+         MakeConsensus(5);
 //        for(int a=0; a<10; a++) {
 //            chrNumString= chr[a];
 //            GetAverageHaplotypeLength(40000);
