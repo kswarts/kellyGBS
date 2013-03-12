@@ -1338,12 +1338,27 @@ public class HaplotypeLength {
             }
             ExportUtils.writeToHapmap(outHapmap, true, outHapmapFileName, ' ');
         }
+        
+        public static void makeInbred() { //this samples hets randomly to inbreed for distance matrix calculations
+            String hapmapFileName= dir+fileID+".hmp.txt";
+            String outHapmapFileName= dir+fileID+"RndInbred.hmp.txt";
+            Alignment hapmap= ImportUtils.readFromHapmap(hapmapFileName,chrNumString);
+            MutableAlignmentForGBS outHapmap= new MutableAlignmentForGBS(hapmap);
+            
+            for (int i= 0;i<hapmap.getSequenceCount();i++) {
+                for (int j= 0;j<hapmap.getSiteCount();j++) {
+                    byte[] SNPs= IUPACNucleotides.getDiploidValueFromIUPACCode(hapmap.getBase(i, j));
+                    if (SNPs[0]!=SNPs[1]) outHapmap.setBase(i, j,SNPs[(Math.random()<0.5)?0:1]);
+                }
+            }
+            ExportUtils.writeToHapmap(outHapmap, true, outHapmapFileName, ' ');
+        }
 
     public static void main (String args[]) {
         dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8_12S";
-        chrNumString= "8";
-        chrNum= 8;
+        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr1_NAM3";
+        chrNumString= "1";
+        chrNum= 1;
 //        GetIBSBySite(100);
 //        GetIBSByPosition(1000000);
 //        GetIBSByPositionOneOutput(20000);
@@ -1351,7 +1366,7 @@ public class HaplotypeLength {
 //        GetIBSForWholeChromosome();
 //        GetAverageHaplotypeLength(2000000);
 //        CompareHapToRef("SS", "B73");
-         MakeConsensus(5);
+         MakeConsensus(3);
 //        for(int a=0; a<10; a++) {
 //            chrNumString= chr[a];
 //            GetAverageHaplotypeLength(40000);
