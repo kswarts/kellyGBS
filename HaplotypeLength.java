@@ -1339,7 +1339,7 @@ public class HaplotypeLength {
             ExportUtils.writeToHapmap(outHapmap, true, outHapmapFileName, ' ');
         }
         
-        public static void makeInbred() { //this samples hets randomly to inbreed for distance matrix calculations
+        public static void MakeInbred() { //this samples hets randomly to inbreed for distance matrix calculations
             String hapmapFileName= dir+fileID+".hmp.txt";
             String outHapmapFileName= dir+fileID+"RndInbred.hmp.txt";
             Alignment hapmap= ImportUtils.readFromHapmap(hapmapFileName,chrNumString);
@@ -1355,10 +1355,10 @@ public class HaplotypeLength {
         }
 
     public static void main (String args[]) {
-        dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr1_NAM3";
-        chrNumString= "1";
-        chrNum= 1;
+        dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/FTSubset/";
+        fileID= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10_12SNAMConsensus63_Control";
+        chrNumString= "10";
+        chrNum= 10;
 //        GetIBSBySite(100);
 //        GetIBSByPosition(1000000);
 //        GetIBSByPositionOneOutput(20000);
@@ -1366,7 +1366,8 @@ public class HaplotypeLength {
 //        GetIBSForWholeChromosome();
 //        GetAverageHaplotypeLength(2000000);
 //        CompareHapToRef("SS", "B73");
-         MakeConsensus(3);
+//         MakeConsensus(3);
+         MakeInbred();
 //        for(int a=0; a<10; a++) {
 //            chrNumString= chr[a];
 //            GetAverageHaplotypeLength(40000);
