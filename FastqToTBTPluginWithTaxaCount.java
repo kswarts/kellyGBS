@@ -17,7 +17,6 @@ import net.maizegenetics.gbs.tagdist.Tags;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaBit;
-import net.maizegenetics.gbs.util.ArgsEngine;
 import net.maizegenetics.util.DirectoryCrawler;
 
 // libraries needed for Plugin functionality
@@ -31,6 +30,7 @@ import org.apache.log4j.Logger;
 
 //libraries added by KLS
 import java.util.Arrays;
+import net.maizegenetics.util.ArgsEngine;
 
 /**
  * This pipeline converts a series of fastq files to TagsByTaxa files (one per fastq file).

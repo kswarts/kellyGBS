@@ -28,13 +28,10 @@ public class TestsOfSelection {
     static int outSequence= -1;
     static int[][] codedAlignment;
     
-    public static void SetReference(String file, String refTaxon, int window) {
-        window= windowSize;
-        try {
-            alignment= ReadSequenceAlignmentUtils.readBasicAlignments(file, 30);
-        } catch (Exception e) {
-            //do nothing
-        }
+    public static void SetReference(String file, String refTaxon,String chrNum) {
+        alignment= ImportUtils.readFromHapmap(file,chrNum);
+        System.out.println("fdsf");
+        System.out.println("Number of sites: "+alignment.getSiteCount()+"/n"+"Number of loci: "+alignment.getSiteCount());
         for (int index= 0;index < alignment.getSequenceCount();index++) {
             if (alignment.getFullTaxaName(index).equals(refTaxon)) outSequence= index;
         }
@@ -48,7 +45,7 @@ public class TestsOfSelection {
     }
     
     public static void RemoveSitesMissingInOutgroup() {
-        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(alignment);
+        MutableSingleEncodeAlignment mna= new MutableSingleEncodeAlignment(alignment,alignment.getSequenceCount(),alignment.getSiteCount());
         for (int i= 0;i < mna.getNumLoci();i++) {
             if (mna.getBase(outSequence, i) == 'N') mna.removeSite(i);
             }
@@ -122,7 +119,7 @@ public class TestsOfSelection {
         slidingWindow= true;
         windowSize= 10;
         String fileRoot= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-        SetReference(fileRoot+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10_NAMTripsacum.hmp.txt.gz","tripsacum:C08L7ACXX:6:250048015",20);
+        SetReference(fileRoot+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10_NAMTripsacum.hmp.txt.gz","tripsacum:C08L7ACXX:6:250048015","10");
         RemoveSitesMissingInOutgroup();
         RecodeAlignment();
         
