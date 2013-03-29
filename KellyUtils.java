@@ -20,7 +20,9 @@ import net.maizegenetics.gbs.tagdist.TagCounts;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByteHDF5TagGroups;
-import net.maizegenetics.genome.BaseEncoder;
+import net.maizegenetics.gbs.util.BaseEncoder;
+import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ImportUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 
 /**
@@ -104,8 +106,8 @@ public class KellyUtils {
 //       int twoMap= 0;
 //       int greaterTwoMap= 0;
 //       a
-//       for (int tag= 0; tag < theTOPM.tagNum; tag++) {
-//           theTOPM.getPositionArray(tag);
+//       for (int site= 0; site < theTOPM.tagNum; site++) {
+//           theTOPM.getPositionArray(site);
 //       }
    }
    /**for biologically characterizing a TOPM and associated tagsByTaxaFile. Positions determined based on AGP_v1, centromeres taken from Wolfgruber et al 2012 and pericentromeric/telomeric extrapolated from Gore et al 2009**/ 
@@ -115,7 +117,7 @@ public class KellyUtils {
        File outputFile= new File(dir+"/CharTOPMWithTBTLog_unitsOf"+divisor+"TagsFromTBT"+theDateString);
        
        //order TBT by read count
-       int[][] orderByRead= new int[theTBT.getTagCount()][2];//a 2D int array to hold tag indices from the topm and the corresponding read counts
+       int[][] orderByRead= new int[theTBT.getTagCount()][2];//a 2D int array to hold site indices from the topm and the corresponding read counts
        for (int sortTBT= 0; sortTBT < theTBT.getTagCount(); sortTBT++) {//fill orderedMasterTags with indices (index 1) and read counts (index 0)
            orderByRead[sortTBT][0]= theTBT.getReadCount(sortTBT);
            orderByRead[sortTBT][1]= sortTBT;
@@ -160,7 +162,7 @@ public class KellyUtils {
                       
            if (theTOPM.getStartPosition(TOPMIndex) > -1) {
                align++;
-               taxaNumOfAlignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex); //num taxa that share aligned tag
+               taxaNumOfAlignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex); //num taxa that share aligned site
                stats[division][chr+6]++;//plus 6 because 6 other variables held in array (for chromosomes 0-12)
                stats[division][1]++;//num of tags that align
                
@@ -171,15 +173,15 @@ public class KellyUtils {
                }
            }
            else {
-               taxaNumOfUnalignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex);//num taxa that share unaligned tag
+               taxaNumOfUnalignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex);//num taxa that share unaligned site
                notAlign++;
            }
            
            if (theTOPM.getPositionArray(TOPMIndex).length > 1) stats[division][2]++;
            
            if (((orderedTBTIndex)%divisor == 0 && orderedTBTIndex != 0) || theTBT.getTagCount()-1 == orderedTBTIndex) {
-               taxaStats[division][0]= ((double)taxaNumOfAlignedTags/(double)(align*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an aligned tag in the divisor set
-               taxaStats[division][1]= ((double)taxaNumOfUnalignedTags/(double)(notAlign*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an unaligned tag in the divisor set
+               taxaStats[division][0]= ((double)taxaNumOfAlignedTags/(double)(align*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an aligned site in the divisor set
+               taxaStats[division][1]= ((double)taxaNumOfUnalignedTags/(double)(notAlign*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an unaligned site in the divisor set
                division++;
                stats[division-1][0]= division;
                taxaNumOfAlignedTags= 0;       
@@ -224,7 +226,7 @@ public class KellyUtils {
        File outputFile= new File(dir+"/CharTOPMWithTagCountLog_unitsOf"+divisor+"TagsFromTBT"+theDateString);
        
        //order TBT by read count
-       int[][] orderByRead= new int[theTags.getTagCount()][2];//a 2D int array to hold tag indices from the topm and the corresponding read counts
+       int[][] orderByRead= new int[theTags.getTagCount()][2];//a 2D int array to hold site indices from the topm and the corresponding read counts
        for (int sortTags= 0; sortTags < theTags.getTagCount(); sortTags++) {//fill orderedMasterTags with indices (index 1) and read counts (index 0)
            orderByRead[sortTags][0]= theTags.getReadCount(sortTags);
            orderByRead[sortTags][1]= sortTags;
@@ -311,9 +313,40 @@ public class KellyUtils {
                 }
    }
    
+       public static void HapmapToCHIAMO(String inFile) {
+        String hapMapFileName= dir+inFile+".hmp.txt";
+        String outCHIAMOFile= hapMapFileName+".gens";
+        Alignment a= ImportUtils.readFromHapmap(inFile, null);
+        
+        try{
+          DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outCHIAMOFile), 655360));
+          
+          for (int site= 0; site < a.getSiteCount(); site++) {
+              outStream.writeBytes(a.getLocusName(site) +" "+a.getSNPID(site)+" "+a.getPositionInLocus(site)+" "+a.getMajorAlleleAsString(site)+" "+a.getMinorAlleleAsString(site));
+              double p= a.getMajorAlleleFrequency(site);
+              double q= a.getMinorAlleleFrequency(site);
+              
+              for (int taxa= 0; taxa<a.getSequenceCount(); taxa++) {
+                  if (a.isHeterozygous(taxa, site) == true) outStream.writeBytes(" 0 1 0");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" 1 0 0");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" "+p+" "+q+" 0");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0 0 1");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0"+p+" "+q);
+                  else outStream.writeBytes(" "+Math.pow(p,2)+" "+2*p*q+" "+Math.pow(q, 2));
+              }
+              outStream.writeBytes("\n");
+           }
+       }
+
+      catch(IOException e) {
+           System.out.println(e);
+       }
+        
+    }
+   
    public static void main (String args[]) {
        
-       dir= "/Users/kelly/Documents/GBS";
+       dir= "/Users/kelly/Documents/GBS/SWLandracesFinal/04_BPECFilteredSNPs/Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_20121204/";
 //       //args for FilterMergedTBT
 //       int minSharedTaxa= 2;
 //       String inTBTFileName= dir+ "/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";//input tbt file pathway
@@ -321,10 +354,11 @@ public class KellyUtils {
 //       FilterMergedTBT(minSharedTaxa, inTBTFileName, outTBTFileName);
        
        //args for CharTOPM
-       String inTOPMFileName= dir+"/landraceCombo/topm/SW_RI_Span_landraces_min2_bowtie2MissingOrganelles.topm";
-       String inTBTFileName= dir+"/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";
-       int divisor= 1000000;
-       CharTOPMWithTBT(inTOPMFileName, inTBTFileName, divisor);
+//       String inTOPMFileName= dir+"/landraceCombo/topm/SW_RI_Span_landraces_min2_bowtie2MissingOrganelles.topm";
+//       String inTBTFileName= dir+"/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";
+//       int divisor= 1000000;
+//       CharTOPMWithTBT(inTOPMFileName, inTBTFileName, divisor);
+       HapmapToCHIAMO("Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_chr10");
        
 //       //args for CharTOPMWithTagCount
 //       String inTOPMFileName= dir+"/AllZeaMasterTags_c10_20120703.topm";
