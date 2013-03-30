@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Date;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
@@ -312,11 +313,12 @@ public class KellyUtils {
                     System.out.println(e);
                 }
    }
-   
+      
        public static void HapmapToCHIAMO(String inFile) {
         String hapMapFileName= dir+inFile+".hmp.txt";
-        String outCHIAMOFile= hapMapFileName+".gens";
-        Alignment a= ImportUtils.readFromHapmap(inFile, null);
+        String outCHIAMOFile= dir+inFile+".gens";
+        Alignment a= ImportUtils.readFromHapmap(hapMapFileName, null);
+        DecimalFormat df= new DecimalFormat("0.####");
         
         try{
           DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outCHIAMOFile), 655360));
@@ -324,20 +326,22 @@ public class KellyUtils {
           for (int site= 0; site < a.getSiteCount(); site++) {
               outStream.writeBytes(a.getLocusName(site) +" "+a.getSNPID(site)+" "+a.getPositionInLocus(site)+" "+a.getMajorAlleleAsString(site)+" "+a.getMinorAlleleAsString(site));
               double p= a.getMajorAlleleFrequency(site);
+              String sp= df.format(p);
               double q= a.getMinorAlleleFrequency(site);
+              String sq= df.format(q);
               
               for (int taxa= 0; taxa<a.getSequenceCount(); taxa++) {
                   if (a.isHeterozygous(taxa, site) == true) outStream.writeBytes(" 0 1 0");
                   else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" 1 0 0");
-                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" "+p+" "+q+" 0");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" "+sp+" "+sq+" 0");
                   else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0 0 1");
-                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0"+p+" "+q);
-                  else outStream.writeBytes(" "+Math.pow(p,2)+" "+2*p*q+" "+Math.pow(q, 2));
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0"+sp+" "+sq);
+                  else outStream.writeBytes(" "+df.format(Math.pow(p,2))+" "+df.format(2*p*q)+" "+df.format(Math.pow(q, 2)));
               }
               outStream.writeBytes("\n");
            }
        }
-
+        
       catch(IOException e) {
            System.out.println(e);
        }
@@ -358,7 +362,7 @@ public class KellyUtils {
 //       String inTBTFileName= dir+"/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";
 //       int divisor= 1000000;
 //       CharTOPMWithTBT(inTOPMFileName, inTBTFileName, divisor);
-       HapmapToCHIAMO("Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_chr10");
+       HapmapToCHIAMO("Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_chr10Polymorphic");
        
 //       //args for CharTOPMWithTagCount
 //       String inTOPMFileName= dir+"/AllZeaMasterTags_c10_20120703.topm";
