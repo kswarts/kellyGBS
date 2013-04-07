@@ -23,7 +23,9 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByteHDF5TagGroups;
 import net.maizegenetics.gbs.util.BaseEncoder;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import org.apache.commons.lang.time.FastDateFormat;
 
 /**
@@ -69,14 +71,14 @@ public class KellyUtils {
        TagCountMutable outputTags = new TagCountMutable(theTBT.getTag(0).length, theTBT.getTagCount()); //new tagsMutable the size of theTBT
        String[] theTaxa=theTBT.getTaxaNames();
 
-       for (int tag= 0; tag < theTBT.getTagCount(); tag++) {//adds the tags that appear in greater than or equal to the taxa specified in the constructor
+       for (int tag= 0; tag < theTBT.getTagCount(); tag++) {//adds the tags that appear in greater than or equal to the taxon specified in the constructor
            if (theTBT.getNumberOfTaxaWithTag(tag) > minSharedTaxa) {
                outputTags.addReadCount(theTBT.getTag(tag), theTBT.getTagLength(tag), 1);
            }
        }
        outputTags.shrinkToCurrentRows();
 
-       TagsByTaxaByte theTBTOut = new TagsByTaxaByte(theTaxa, outputTags);//new blank TBT.Byte file with the taxa from theTBT and the filtered tags
+       TagsByTaxaByte theTBTOut = new TagsByTaxaByte(theTaxa, outputTags);//new blank TBT.Byte file with the taxon from theTBT and the filtered tags
        for (int tagFill=0; tagFill < theTBTOut.getTagCount(); tagFill++) { //fills the new TBT.Byte with information from theTBT
            for (int taxonFill=0; taxonFill < theTaxa.length; taxonFill++) {
                theTBTOut.addReadsToTagTaxon(tagFill, taxonFill, theTBT.getReadCountForTagTaxon(theTBT.getTagIndex(theTBTOut.getTag(tagFill)), taxonFill));
@@ -163,7 +165,7 @@ public class KellyUtils {
                       
            if (theTOPM.getStartPosition(TOPMIndex) > -1) {
                align++;
-               taxaNumOfAlignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex); //num taxa that share aligned site
+               taxaNumOfAlignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex); //num taxon that share aligned site
                stats[division][chr+6]++;//plus 6 because 6 other variables held in array (for chromosomes 0-12)
                stats[division][1]++;//num of tags that align
                
@@ -174,15 +176,15 @@ public class KellyUtils {
                }
            }
            else {
-               taxaNumOfUnalignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex);//num taxa that share unaligned site
+               taxaNumOfUnalignedTags+= theTBT.getNumberOfTaxaWithTag(realTBTIndex);//num taxon that share unaligned site
                notAlign++;
            }
            
            if (theTOPM.getPositionArray(TOPMIndex).length > 1) stats[division][2]++;
            
            if (((orderedTBTIndex)%divisor == 0 && orderedTBTIndex != 0) || theTBT.getTagCount()-1 == orderedTBTIndex) {
-               taxaStats[division][0]= ((double)taxaNumOfAlignedTags/(double)(align*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an aligned site in the divisor set
-               taxaStats[division][1]= ((double)taxaNumOfUnalignedTags/(double)(notAlign*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxa that share an unaligned site in the divisor set
+               taxaStats[division][0]= ((double)taxaNumOfAlignedTags/(double)(align*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxon that share an aligned site in the divisor set
+               taxaStats[division][1]= ((double)taxaNumOfUnalignedTags/(double)(notAlign*theTBT.getTaxaCount()))*(double)theTBT.getTaxaCount();//the average number of taxon that share an unaligned site in the divisor set
                division++;
                stats[division-1][0]= division;
                taxaNumOfAlignedTags= 0;       
@@ -314,7 +316,7 @@ public class KellyUtils {
                 }
    }
       
-       public static void HapmapToCHIAMO(String inFile) {
+       public static void HapmapToCHIAMO(String inFile) { //the genotypic file for use in IMPUTE2. Missing data is given the HW probability based on MajorMinor Allele Freq
         String hapMapFileName= dir+inFile+".hmp.txt";
         String outCHIAMOFile= dir+inFile+".gens";
         Alignment a= ImportUtils.readFromHapmap(hapMapFileName, null);
@@ -326,20 +328,21 @@ public class KellyUtils {
           for (int site= 0; site < a.getSiteCount(); site++) {
               outStream.writeBytes(a.getLocusName(site) +" "+a.getSNPID(site)+" "+a.getPositionInLocus(site)+" "+a.getMajorAlleleAsString(site)+" "+a.getMinorAlleleAsString(site));
               double p= a.getMajorAlleleFrequency(site);
-              String sp= df.format(p);
               double q= a.getMinorAlleleFrequency(site);
-              String sq= df.format(q);
+              double f;
               
               for (int taxa= 0; taxa<a.getSequenceCount(); taxa++) {
+                  f= ((double) a.getHeterozygousCountForTaxon(taxa)/((double) a.getSiteCount()-((double) a.getTotalGametesNotMissingForTaxon(taxa)/2))>.015)?.9:.2;
                   if (a.isHeterozygous(taxa, site) == true) outStream.writeBytes(" 0 1 0");
                   else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" 1 0 0");
-                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" "+sp+" "+sq+" 0");
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMajorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMajorAllele(site)) outStream.writeBytes(" "+df.format(p*f)+" "+df.format(q*(1-f))+" 0");
                   else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) && a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0 0 1");
-                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0"+sp+" "+sq);
-                  else outStream.writeBytes(" "+df.format(Math.pow(p,2))+" "+df.format(2*p*q)+" "+df.format(Math.pow(q, 2)));
+                  else if (a.getBaseArray(taxa, site)[0] == a.getMinorAllele(site) || a.getBaseArray(taxa, site)[1] == a.getMinorAllele(site)) outStream.writeBytes(" 0"+df.format(p*(1-f))+" "+df.format(q*f));
+                  else outStream.writeBytes(" "+df.format(Math.pow(p,2)*f)+" "+df.format(2*p*q*(1-f))+" "+df.format(Math.pow(q, 2)*f));
               }
               outStream.writeBytes("\n");
            }
+          outStream.close();
        }
         
       catch(IOException e) {
@@ -347,10 +350,45 @@ public class KellyUtils {
        }
         
     }
+       
+   public static void HapmapToSample(String inFile) { //the basic sample file for use in IMPUTE2. Calculates missing based on diploid value
+        String hapMapFileName= dir+inFile+".hmp.txt";
+        String outSamplesFile= dir+inFile+".samples";
+        Alignment a= ImportUtils.readFromHapmap(hapMapFileName, null);
+        DecimalFormat df= new DecimalFormat("0.##");
+        double miss;
+        
+        try{
+          DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outSamplesFile), 655360));
+          outStream.writeBytes("ID_1 ID_2 missing\n0 0 0");
+          
+          for (int taxon= 0; taxon < a.getSequenceCount(); taxon++) {
+              miss= 1.0-((double) a.getTotalGametesNotMissingForTaxon(taxon)/((double) a.getSiteCount()*2.0));
+              outStream.writeBytes("\n"+a.getTaxaName(taxon)+" "+a.getTaxaName(taxon)+" "+df.format(miss));              
+           }
+          outStream.close();
+       }
+        
+      catch(IOException e) {
+           System.out.println(e);
+       }
+     }
+   
+   public static void SubsetHapmapByPosition(String inFile, int startPos, int endPos, boolean gz) {
+        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.serial.gz":dir+inFile+".hmp.txt";
+        String outHapMapFileName= dir+inFile+"subset_"+startPos+"-"+endPos+".hmp.txt";
+        Alignment a= (gz==true)?ImportUtils.readAlignmentFromSerialGZ(inHapMapFileName):ImportUtils.readFromHapmap(inHapMapFileName, null);
+        MutableNucleotideAlignment newAlign= MutableNucleotideAlignment.getInstance(a);
+        for (int site= 0; site<a.getSiteCount(); site++) {
+            if (a.getPositionInLocus(site)<startPos || a.getPositionInLocus(site)>endPos) newAlign.clearSiteForRemoval(site);
+        }
+        newAlign.clean();
+        System.out.println("First site pos: "+newAlign.getPositionInLocus(0)+"\nLast site pos: "+newAlign.getPositionInLocus(newAlign.getSiteCount()-1));
+        ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+   }
    
    public static void main (String args[]) {
-       
-       dir= "/Users/kelly/Documents/GBS/SWLandracesFinal/04_BPECFilteredSNPs/Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_20121204/";
+             
 //       //args for FilterMergedTBT
 //       int minSharedTaxa= 2;
 //       String inTBTFileName= dir+ "/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";//input tbt file pathway
@@ -361,14 +399,30 @@ public class KellyUtils {
 //       String inTOPMFileName= dir+"/landraceCombo/topm/SW_RI_Span_landraces_min2_bowtie2MissingOrganelles.topm";
 //       String inTBTFileName= dir+"/landraceCombo/mergedTBT/SW_RI_Span_landrace_min1.tbt.byte";
 //       int divisor= 1000000;
-//       CharTOPMWithTBT(inTOPMFileName, inTBTFileName, divisor);
-       HapmapToCHIAMO("Kelly_Swarts-Landraces_BPEC_AllZea_GBS_Build_July_2012_FINAL_chr10Polymorphic");
+//       CharTOPMWithTBT(inTOPMFileName, inTBTFileName, divisor);   
        
 //       //args for CharTOPMWithTagCount
 //       String inTOPMFileName= dir+"/AllZeaMasterTags_c10_20120703.topm";
 //       String inTagCountFileName= dir+"/AllZeaMasterTags_c10_20120606.cnt";
 //       int divisor= 1000000;
 //       CharTOPMWithTagCount(inTOPMFileName, inTagCountFileName, divisor);
+       
+       //args for subsetting and formatting for Impute2
+       int startPos= 129000000;
+       int endPos= 134000000;
+       dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
+       String inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8";
+       SubsetHapmapByPosition(inGBSFile,startPos,endPos,false);
+//       inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8subset_"+startPos+"-"+endPos;
+//       HapmapToCHIAMO(inGBSFile);
+//       HapmapToSample(inGBSFile);
+//       
+//       dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
+//       String inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8";
+//       SubsetHapmapByPosition(inWGSFile,startPos,endPos);
+//       inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset"+startPos+"-"+endPos;
+//       HapmapToCHIAMO(inWGSFile);
+//       HapmapToSample(inWGSFile);
 
    }
 }
