@@ -1,3 +1,5 @@
+package Kelly;
+
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -5,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import net.maizegenetics.pal.alignment.*;
 import net.maizegenetics.pal.distance.IBSDistanceMatrix;
 import net.maizegenetics.pal.ids.IdGroup;
@@ -12,6 +15,8 @@ import net.maizegenetics.pal.ids.IdGroupUtils;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.StopWatch;
+import weka.core.Instance;
+import weka.core.*;
 
 /*
  * To change this template, choose Tools | Templates
@@ -226,6 +231,17 @@ public class LearnTreesImputation {
 //        
 //        return tree;
 //    }
+    public static Instance CreateWekaInstances(Alignment a) {
+        FastVector atts= new FastVector();
+        String[] values= new String[3];
+        values[2]= "N";
+        for(int site= 0; site<a.getSiteCount();site++) {
+            values[0]= a.getMajorAlleleAsString(site);
+            values[1]= a.getMinorAlleleAsString(site);
+            List<String> valueList= Arrays.asList(values);
+            atts.addElement(new Attribute(a.getSNPID(site), valueList));
+        }
+    }
     
     public static int[][] BuildTree(Alignment a, int siteIndex, int window) {
         int[][] tree= new int[a.getSequenceCount()][a.getSequenceCount()];

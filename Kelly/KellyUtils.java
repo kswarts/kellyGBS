@@ -1,3 +1,5 @@
+package Kelly;
+
 /*
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
@@ -408,18 +410,18 @@ public class KellyUtils {
 //       CharTOPMWithTagCount(inTOPMFileName, inTagCountFileName, divisor);
        
        //args for subsetting and formatting for Impute2
-       int startPos= 129000000;
-       int endPos= 134000000;
-       dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
-       String inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8";
-       SubsetHapmapByPosition(inGBSFile,startPos,endPos,false);
+       int startPos= 30000000;
+       int endPos= 40000000;
+//       dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
+//       String inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8";
+//       SubsetHapmapByPosition(inGBSFile,startPos,endPos,true);
 //       inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8subset_"+startPos+"-"+endPos;
 //       HapmapToCHIAMO(inGBSFile);
 //       HapmapToSample(inGBSFile);
 //       
-//       dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
-//       String inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8";
-//       SubsetHapmapByPosition(inWGSFile,startPos,endPos);
+       dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
+       String inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8";
+       SubsetHapmapByPosition(inWGSFile,startPos,endPos,false);
 //       inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset"+startPos+"-"+endPos;
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
