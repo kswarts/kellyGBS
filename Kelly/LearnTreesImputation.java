@@ -232,15 +232,17 @@ public class LearnTreesImputation {
 //        return tree;
 //    }
     public static Instance CreateWekaInstances(Alignment a) {
-        FastVector atts= new FastVector();
+        List<Attribute> atts=new List<Attribute>();
         String[] values= new String[3];
+        Instances input;
         values[2]= "N";
         for(int site= 0; site<a.getSiteCount();site++) {
             values[0]= a.getMajorAlleleAsString(site);
             values[1]= a.getMinorAlleleAsString(site);
             List<String> valueList= Arrays.asList(values);
-            atts.addElement(new Attribute(a.getSNPID(site), valueList));
+            atts.add(new Attribute(a.getSNPID(site), valueList));
         }
+        input= new Instances("SNPs", atts, atts.size());
     }
     
     public static int[][] BuildTree(Alignment a, int siteIndex, int window) {
