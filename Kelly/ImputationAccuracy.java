@@ -326,8 +326,8 @@ public class ImputationAccuracy {
             }
         }
         try{
-            String outFile= dir+outFileName+"accuracyTest.txt";
-          DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile), 655360));
+            String outFile= dir+outFileName+"_accuracyTest.txt";
+          DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile)));
           outStream.writeBytes("\thomoMajCorrect\thomoMinCorrect\thomoHetOneCorrect\thomoIncorrectHomo\thomoIncorrectHet"
                   + "\thomoMissing\thetCorrect\thetOneCorrect\thetIncorrectHomo\thetIncorrectHet\thetMissing\tmissingImputedHomo"
                   + "\tmissingImputedHet\tmissingMissing");
@@ -352,7 +352,8 @@ public class ImputationAccuracy {
     public static void main(String[] args) {
         dir= "/Users/kelly/Documents/GBS/GroupImputation/";
         String knownFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575";
-        String imputedFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575_masked";
+        String imputedFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575_imputed";
+//        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
         ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 
                 ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, dir+imputedFileName);
         
