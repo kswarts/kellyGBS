@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
@@ -26,6 +27,7 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxaByteHDF5TagGroups;
 import net.maizegenetics.gbs.util.BaseEncoder;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
+import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import org.apache.commons.lang.time.FastDateFormat;
@@ -407,6 +409,21 @@ public class KellyUtils {
         }
         newAlign.clean();
         System.out.println("First site pos: "+newAlign.getPositionInLocus(0)+"\nLast site pos: "+newAlign.getPositionInLocus(newAlign.getSiteCount()-1));
+        ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+   }
+   
+   public static void SubsetHapmapByTaxaCov(String inFile, double minCov, boolean gz) {
+        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.serial.gz":dir+inFile+".hmp.txt";
+        String outHapMapFileName= dir+inFile+"subset_"+inFile+"_minCov"+minCov+".hmp.txt";
+        Alignment a= (gz==true)?ImportUtils.readAlignmentFromSerialGZ(inHapMapFileName):ImportUtils.readFromHapmap(inHapMapFileName, null);
+        ArrayList<String> badTaxa= new ArrayList<String>();
+        double numTaxa= a.getSequenceCount();
+        for (int taxon=0;taxon<a.getSequenceCount();taxon++) {
+            if ((((double) a.getTotalNotMissingForTaxon(taxon))/numTaxa) < minCov) badTaxa.add(a.getTaxaName(taxon));
+        }
+        String[] taxaToRemove= new String[badTaxa.size()];
+        badTaxa.toArray(taxaToRemove);
+        Alignment newAlign= FilterAlignment.getInstanceRemoveSiteNames(a, taxaToRemove);
         ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
    }
    
