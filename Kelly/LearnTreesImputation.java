@@ -15,7 +15,6 @@ import net.maizegenetics.pal.ids.IdGroupUtils;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.StopWatch;
-import weka.core.Instance;
 import weka.core.*;
 
 /*
@@ -231,18 +230,30 @@ public class LearnTreesImputation {
 //        
 //        return tree;
 //    }
-    public static Instance CreateWekaInstances(Alignment a) {
-        List<Attribute> atts=new List<Attribute>();
+    
+    public static Alignment GetHaplotypes(Alignment a, int windowSize) {
+        a.
+    }
+    
+    public static Instances CreateWekaInstances(Alignment a, String instancesName) {
+        ArrayList<Attribute> atts= new ArrayList<Attribute>(a.getSiteCount());
         String[] values= new String[3];
-        Instances input;
         values[2]= "N";
         for(int site= 0; site<a.getSiteCount();site++) {
             values[0]= a.getMajorAlleleAsString(site);
             values[1]= a.getMinorAlleleAsString(site);
             List<String> valueList= Arrays.asList(values);
-            atts.add(new Attribute(a.getSNPID(site), valueList));
+            atts.add(site,new Attribute(a.getSNPID(site), valueList));
         }
-        input= new Instances("SNPs", atts, atts.size());
+        Instances input= new Instances(instancesName, atts, a.getSequenceCount());
+        for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {
+            String[] vals= new String[a.getSiteCount()];
+            for (int site= 0;site<a.getSiteCount();site++) {
+                vals[site]= a.getBaseAsString(taxon, site);
+            }
+            input.add(taxon, new Instance(vals));
+        }
+        return input;
     }
     
     public static int[][] BuildTree(Alignment a, int siteIndex, int window) {

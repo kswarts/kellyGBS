@@ -28,10 +28,11 @@ public class BaseImputation {
         MutableSingleEncodeAlignment impute= MutableSingleEncodeAlignment.getInstance(masked, masked.getSequenceCount(), masked.getSiteCount());
         for (int site= 0;site<masked.getSiteCount();site++) {
             double minFreq= masked.getMinorAlleleFrequency(site);
-            byte maj= masked.getMajorAllele(site);
-            byte min= masked.getMinorAllele(site);
-            String hetString= masked.getBaseAsString(site, maj)+masked.getBaseAsString(site, min);
-            byte het= NucleotideAlignmentConstants.getNucleotideDiploidByte(hetString);
+            String majString= masked.getBaseAsString(site, masked.getMajorAllele(site));
+            String minString= masked.getBaseAsString(site, masked.getMinorAllele(site));           
+            byte het= NucleotideAlignmentConstants.getNucleotideDiploidByte(majString+minString);
+            byte maj= NucleotideAlignmentConstants.getNucleotideDiploidByte(majString+majString);
+            byte min= NucleotideAlignmentConstants.getNucleotideDiploidByte(minString+minString);
             for (int taxon= 0;taxon<masked.getSequenceCount();taxon++) {
                 if (masked.getBase(taxon, site)==diploidN){
                     if (Math.random() <= minFreq) impute.setBase(taxon, site, min);

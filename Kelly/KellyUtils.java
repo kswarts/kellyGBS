@@ -318,7 +318,7 @@ public class KellyUtils {
                 }
    }
       
-       public static void HapmapToCHIAMO(String inFile) { //the genotypic file for use in IMPUTE2. Missing data is given the HW probability based on MajorMinor Allele Freq
+       public static void HapmapToCHIAMO(String inFile) { //the genotypic file for use in IMPUTE2 and Beagle. Missing data is given the HW probability based on MajorMinor Allele Freq
         String hapMapFileName= dir+inFile+".hmp.txt";
         String outCHIAMOFile= dir+inFile+".gens";
         Alignment a= ImportUtils.readFromHapmap(hapMapFileName, null);
@@ -375,6 +375,27 @@ public class KellyUtils {
            System.out.println(e);
        }
      }
+   
+   public static void LegendAndHaps(Alignment a) { //to generate a halotype and accompanying legends file from an alignment for IMPUTE2. Throws out any alignments with hets
+       String hapsFileName= dir+a+".haps";
+       String legendFileName= dir+a+".legend";
+       
+       try{
+          DataOutputStream outStreamHaps= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(hapsFileName), 655360));
+          DataOutputStream outStreamLegend= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(legendFileName), 655360));
+          outStreamLegend.writeBytes("rdID position a0 a1\n");
+          
+          for (int site= 0; site < a.getSiteCount(); site++) {
+              
+           }
+          outStreamHaps.close();
+          outStreamLegend.close();
+       }
+        
+      catch(IOException e) {
+           System.out.println(e);
+       }
+   }
    
    public static void SubsetHapmapByPosition(String inFile, int startPos, int endPos, boolean gz) {
         String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.serial.gz":dir+inFile+".hmp.txt";
