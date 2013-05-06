@@ -232,7 +232,7 @@ public class LearnTreesImputation {
 //    }
     
     public static Alignment GetHaplotypes(Alignment a, int windowSize) {
-        a.
+        
     }
     
     public static Instances CreateWekaInstances(Alignment a, String instancesName) {
