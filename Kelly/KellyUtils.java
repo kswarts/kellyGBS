@@ -7,6 +7,7 @@ package Kelly;
 
 
 
+import static Kelly.LearnTreesImputation.diploidN;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
@@ -30,6 +31,9 @@ import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
+import net.maizegenetics.pal.ids.IdGroup;
+import net.maizegenetics.pal.ids.IdGroupUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 
 /**
@@ -413,17 +417,24 @@ public class KellyUtils {
    }
    
    public static void SubsetHapmapByTaxaCov(String inFile, double minCov, boolean gz) {
-        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.serial.gz":dir+inFile+".hmp.txt";
+        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
         String outHapMapFileName= dir+inFile+"subset_"+inFile+"_minCov"+minCov+".hmp.txt";
         Alignment a= (gz==true)?ImportUtils.readAlignmentFromSerialGZ(inHapMapFileName):ImportUtils.readFromHapmap(inHapMapFileName, null);
-        ArrayList<String> badTaxa= new ArrayList<String>();
-        double numTaxa= a.getSequenceCount();
-        for (int taxon=0;taxon<a.getSequenceCount();taxon++) {
-            if ((((double) a.getTotalNotMissingForTaxon(taxon))/numTaxa) < minCov) badTaxa.add(a.getTaxaName(taxon));
+        IdGroup IDs= a.getIdGroup();
+        boolean[] badTaxa= new boolean[a.getSequenceCount()];
+        double numSites= a.getSiteCount();
+        for (int taxon= 0; taxon<a.getSequenceCount(); taxon++) {
+            if ((((double) a.getTotalNotMissingForTaxon(taxon))/numSites) < minCov) badTaxa[taxon]= true;
         }
-        String[] taxaToRemove= new String[badTaxa.size()];
-        badTaxa.toArray(taxaToRemove);
-        Alignment newAlign= FilterAlignment.getInstanceRemoveSiteNames(a, taxaToRemove);
+        IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
+        Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
+        //filter for sites that are polymorphic
+        ArrayList<Integer> subSite= new ArrayList<Integer>();
+        for (int s= 0; s<align.getSiteCount(); s++) {
+            if (align.isPolymorphic(s) == true) subSite.add(s);
+        }
+        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(align)]));
+        Alignment newAlign= FilterAlignment.getInstance(align, keepSite);
         ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
    }
    
@@ -457,9 +468,10 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inGBSFile);
 //       HapmapToSample(inGBSFile);
 //       
-       dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
-       String inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8";
-       SubsetHapmapByPosition(inWGSFile,startPos,endPos,false);
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String inHapmap= "04_PivotMergedTaxaTBT.c10_s0_s24575";
+       SubsetHapmapByTaxaCov(inHapmap,0.1,false);
+//       SubsetHapmapByPosition(inWGSFile,startPos,endPos,false);
 //       inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset"+startPos+"-"+endPos;
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
