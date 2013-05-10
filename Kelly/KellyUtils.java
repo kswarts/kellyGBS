@@ -7,7 +7,6 @@ package Kelly;
 
 
 
-import static Kelly.LearnTreesImputation.diploidN;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
@@ -19,6 +18,8 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Set;
+import java.util.TreeSet;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
 import net.maizegenetics.gbs.tagdist.TagCountMutable;
 import net.maizegenetics.gbs.tagdist.TagCounts;
@@ -418,13 +419,13 @@ public class KellyUtils {
    
    public static void SubsetHapmapByTaxaCov(String inFile, double minCov, boolean gz) {
         String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
-        String outHapMapFileName= dir+inFile+"subset_"+inFile+"_minCov"+minCov+".hmp.txt";
-        Alignment a= (gz==true)?ImportUtils.readAlignmentFromSerialGZ(inHapMapFileName):ImportUtils.readFromHapmap(inHapMapFileName, null);
+        String outHapMapFileName= dir+inFile+"subset_"+"_minCov"+minCov+".hmp.txt";
+        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
         IdGroup IDs= a.getIdGroup();
         boolean[] badTaxa= new boolean[a.getSequenceCount()];
         double numSites= a.getSiteCount();
         for (int taxon= 0; taxon<a.getSequenceCount(); taxon++) {
-            if ((((double) a.getTotalNotMissingForTaxon(taxon))/numSites) < minCov) badTaxa[taxon]= true;
+            if ((((double) a.getTotalNotMissingForTaxon(taxon))/numSites) <= minCov) badTaxa[taxon]= true;
         }
         IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
         Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
@@ -436,6 +437,54 @@ public class KellyUtils {
         int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(align)]));
         Alignment newAlign= FilterAlignment.getInstance(align, keepSite);
         ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+   }
+   
+   public static void SubsetSitesInAlignments(String inFileRef, boolean gzRef, String inFileMod, boolean gzMod) {
+       String inFileRefName= (gzRef==true)?dir+inFileRef+".hmp.txt.gz":dir+inFileRef+".hmp.txt";
+       String inFileModName= (gzMod==true)?dir+inFileMod+".hmp.txt.gz":dir+inFileMod+".hmp.txt";
+       String outFileName= dir+inFileMod+"_sitesMatch"+inFileRef+".hmp.txt";
+       Alignment ref= ImportUtils.readFromHapmap(inFileRefName, null);
+       Alignment mod= ImportUtils.readFromHapmap(inFileModName, null);
+       ArrayList<Integer> subSite= new ArrayList<Integer>();
+       int[] refPos= ref.getPhysicalPositions();
+       int currModPos= 0;
+       //check to make sure that maj/min are the same between alignments for physical positions that match
+       System.out.println("Maj/min allele of sites in modified/reference file that do not match site at corresponding physical position:");
+       int sitesWithSamePos= 0;
+       int disagree= 0;
+       for (int site= 0;site<mod.getSiteCount();site++) {
+           currModPos= mod.getPositionInLocus(site);
+           int refIndex= Arrays.binarySearch(refPos, currModPos);
+           if (refIndex>0) {
+               sitesWithSamePos++;
+               if ((ref.getMajorAllele(refIndex)==mod.getMajorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMinorAllele(site))||
+                       (ref.getMajorAllele(refIndex)==mod.getMinorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMajorAllele(site))) subSite.add(site);
+               else {
+                   System.out.println("Physical position: "+mod.getPositionInLocus(site)+"\tSiteIndex: "+site+"/"+refIndex+"\tMod/Ref Maj: ("+mod.getMajorAlleleAsString(site)+"/"+ref.getMajorAlleleAsString(refIndex)+")"+"\tMod/Ref Min: ("+mod.getMinorAlleleAsString(site)+"/"+ref.getMinorAlleleAsString(refIndex)+")");
+                   disagree++;
+               }
+           }
+       }
+       System.out.println(disagree+" out of "+sitesWithSamePos+" sites with same physical position do not share the same maj/min allele");
+       subSite.trimToSize();
+       int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[subSite.size()]));
+       Alignment sub= FilterAlignment.getInstance(mod, keepSite);
+       ExportUtils.writeToHapmap(sub, true, outFileName, '\t', null);
+   }
+   
+   public static void SitesWithSamePhysicalPositions(String inFile, boolean gz) {
+       String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+       int[] pos= a.getPhysicalPositions();
+       ArrayList<Integer> posList= new ArrayList<Integer>(pos.length);
+       for (int p= 0;p<pos.length;p++) {
+           posList.add(p, pos[p]);
+       }
+       ArrayList<Integer> dupSites= new ArrayList<Integer>();
+       for (int site= 0;site<a.getSiteCount();site++) {
+           if (posList.indexOf(a.getPositionInLocus(site))!=posList.lastIndexOf(a.getPositionInLocus(site))) System.out.println(posList.indexOf(a.getPositionInLocus(site)));
+       }
+       Set<Integer> firstIndexBad = new TreeSet<Integer>(dupSites);    
    }
    
    public static void main (String args[]) {
@@ -459,8 +508,8 @@ public class KellyUtils {
 //       CharTOPMWithTagCount(inTOPMFileName, inTagCountFileName, divisor);
        
        //args for subsetting and formatting for Impute2
-       int startPos= 30000000;
-       int endPos= 40000000;
+//       int startPos= 30000000;
+//       int endPos= 40000000;
 //       dir= "/Users/kelly/Documents/GBS/FinalRev1_BPECFilteredSNPsSubset/";
 //       String inGBSFile= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr8";
 //       SubsetHapmapByPosition(inGBSFile,startPos,endPos,true);
@@ -468,13 +517,23 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inGBSFile);
 //       HapmapToSample(inGBSFile);
 //       
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inHapmap= "04_PivotMergedTaxaTBT.c10_s0_s24575";
-       SubsetHapmapByTaxaCov(inHapmap,0.1,false);
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/minCov10percentsubsets04_PivotMergedTaxaTBT.c10/";
+//       String inHapmap= "04_PivotMergedTaxaTBT.c10_s0_s4095subset__minCov0.1_HaplotypeMerge";
+//       SubsetHapmapByTaxaCov(inHapmap,0.6,false);
 //       SubsetHapmapByPosition(inWGSFile,startPos,endPos,false);
 //       inWGSFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset"+startPos+"-"+endPos;
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
+       
+       //for matchSitesInAlignment
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String inRef= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
+       String inMod= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
+       SubsetSitesInAlignments(inRef,false,inMod,false);
+       
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
+//       SitesWithSamePhysicalPositions(inFile,false);
 
    }
 }
