@@ -8,8 +8,6 @@ import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableSingleEncodeAlignment;
-import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
-import net.maizegenetics.pal.ids.IdGroup;
 
 /**
  *
@@ -146,5 +144,9 @@ public class PhaseHets {
         else if (haploidBase==(byte) 0x4) diploidBase= GAP;
         else diploidBase= INSERT;
         return diploidBase;
+    }
+    
+    public static void main(String[] args) {
+        
     }
 }

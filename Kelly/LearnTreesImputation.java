@@ -5,9 +5,11 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.AttributedCharacterIterator.Attribute;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.maizegenetics.gbs.pipeline.MergeIdenticalGametes;
 import net.maizegenetics.pal.alignment.*;
 import net.maizegenetics.pal.distance.IBSDistanceMatrix;
 import net.maizegenetics.pal.ids.IdGroup;
@@ -15,6 +17,7 @@ import net.maizegenetics.pal.ids.IdGroupUtils;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.StopWatch;
+import sun.security.jca.GetInstance.Instance;
 import weka.core.*;
 
 /*
@@ -269,26 +272,34 @@ public class LearnTreesImputation {
     }
     
     public static void main (String args[]) {
-       
-       String dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
-       String inFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset_129000000-135000000Polymorphic";
-       Alignment a= ImportUtils.readFromHapmap(dir+inFile+".hmp.txt", true, null);  
-       System.out.println("Samples in hapmap: "+a.getSequenceCount()+"\n"+"Sites in hapmap: "+a.getSiteCount());
-       int refSite= 50000;
-       int window= 100000;
-       String SNP= a.getSNPID(refSite);
-       Alignment noMissing= LearnTreesImputation.SelectForTaxaPresent(a, refSite);
-       String[] allelesPre= LearnTreesImputation.GetIUPACAtSite(a, refSite);       
-       System.out.println("Samples to train on: "+noMissing.getSequenceCount()+"\n"+"Sites remaining after filtering: "+noMissing.getSiteCount());
-       double H= LearnTreesImputation.GetEntropy(noMissing, refSite);
-       System.out.println("H for "+SNP+": "+H);
-       for (int i=0;i<allelesPre.length;i++){System.out.println(allelesPre[i]);}
-       int root= LearnTreesImputation.FindBestSite(noMissing, refSite, window, inFile+"_site"+refSite+"_window"+window);
-       
-       double[] GDRoot= new double[3];
-       GDRoot[0]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMajorAllele(root), false);
-       GDRoot[1]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMinorAllele(root), false);
-       GDRoot[2]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMajorAllele(root), true);
-       System.out.println("Best Site: "+noMissing.getSNPID(root)+" ("+root+")"+"\n"+"GD for major allele: "+GDRoot[0]+"\n"+"GD for minor allele: "+GDRoot[1]+"\n"+"GD for missing: "+GDRoot[2]);        
+       //for get best site, doesn't actually generate a tree
+//       String dir= "/Users/kelly/Documents/GBS/WGSHapmap/";
+//       String inFile= "maizeHapMapV2_B73RefGenV2_201203028_chr8subset_129000000-135000000Polymorphic";
+//       Alignment a= ImportUtils.readFromHapmap(dir+inFile+".hmp.txt", true, null);  
+//       System.out.println("Samples in hapmap: "+a.getSequenceCount()+"\n"+"Sites in hapmap: "+a.getSiteCount());
+//       int refSite= 50000;
+//       int window= 100000;
+//       String SNP= a.getSNPID(refSite);
+//       Alignment noMissing= LearnTreesImputation.SelectForTaxaPresent(a, refSite);
+//       String[] allelesPre= LearnTreesImputation.GetIUPACAtSite(a, refSite);       
+//       System.out.println("Samples to train on: "+noMissing.getSequenceCount()+"\n"+"Sites remaining after filtering: "+noMissing.getSiteCount());
+//       double H= LearnTreesImputation.GetEntropy(noMissing, refSite);
+//       System.out.println("H for "+SNP+": "+H);
+//       for (int i=0;i<allelesPre.length;i++){System.out.println(allelesPre[i]);}
+//       int root= LearnTreesImputation.FindBestSite(noMissing, refSite, window, inFile+"_site"+refSite+"_window"+window);
+//       
+//       double[] GDRoot= new double[3];
+//       GDRoot[0]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMajorAllele(root), false);
+//       GDRoot[1]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMinorAllele(root), false);
+//       GDRoot[2]= LearnTreesImputation.CalculateGeneticDistanceForGroupBasedOnHaploidAllele(a, root, a.getMajorAllele(root), true);
+//       System.out.println("Best Site: "+noMissing.getSNPID(root)+" ("+root+")"+"\n"+"GD for major allele: "+GDRoot[0]+"\n"+"GD for minor allele: "+GDRoot[1]+"\n"+"GD for missing: "+GDRoot[2]);
+        
+        //run ed's code for merging gametes to generate haplotypes
+        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String inFile= dir+"04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1.hmp.txt";
+        String mergeFile= dir+"04_PivotMergedTaxaTBT.c10_s0_s24575subset_minCov0.1_HaplotypeMerge.hmp.txt";
+        String errorOne= dir+"04_PivotMergedTaxaTBT.c10_s0_s24575subset_minCov0.1_HaplotypeMerge_Error1.txt";
+        String errorTwo= dir+"04_PivotMergedTaxaTBT.c10_s0_s24575subset_minCov0.1_HaplotypeMerge_Error2.txt";
+        MergeIdenticalGametes endChr10= new MergeIdenticalGametes(inFile, mergeFile, errorOne, errorTwo,.01,500);
    }
 }
