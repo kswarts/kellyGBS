@@ -74,10 +74,16 @@ public class AssignHaplotypes {
        Alignment hap= ImportUtils.readFromHapmap(hapFileName, null);
        Alignment inbred= ImportUtils.readFromHapmap(inbredFileName, null);
        
-       int[][] index= new int[hap.getSequenceCount()][(hap.getSiteCount()/siteBlock)+1]; //instatiate array to hold inbred assignments to -1
-       for (int i=0;i<index.length;i++) {
-           for (int j=0;j<index[0].length;j++) {
-               index[i][j]= -1;
+       int[][] inbredIndex= new int[hap.getSequenceCount()][(hap.getSiteCount()/siteBlock)+1]; //instatiate array to hold inbred assignments to -1
+       for (int i=0;i<inbredIndex.length;i++) {
+           for (int j=0;j<inbredIndex[0].length;j++) {
+               inbredIndex[i][j]= -1;
+           }
+       }
+       int[][] hapIndex= new int[inbred.getSequenceCount()][(inbred.getSiteCount()/siteBlock)+1]; //instantiate array to hold haplotype assignments to inbred
+       for (int i=0;i<hapIndex.length;i++) {
+           for (int j=0;j<hapIndex[0].length;j++) {
+               hapIndex[i][j]= -1;
            }
        }
        //assigns the highest matching inbred taxon to haplotype chunk, assuming any meet a minimum cutoff. -1 is unassigned. assume complete inbreeding
@@ -96,7 +102,10 @@ public class AssignHaplotypes {
                    }
                    prevTaxonSim= currTaxonSimilarity;
                    currTaxonSimilarity=countSame/comparedSites;
-                   if (prevTaxonSim<currTaxonSimilarity && currTaxonSimilarity>1-mismatchTol) index[haplo][block]= taxon;
+                   if (prevTaxonSim<currTaxonSimilarity && currTaxonSimilarity>1-mismatchTol) {
+                       inbredIndex[haplo][block]= taxon;
+                       hapIndex[taxon][block]= haplo;
+                   }
                } 
            }
        }
@@ -104,12 +113,12 @@ public class AssignHaplotypes {
             DataOutputStream outIndexStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFileIndexName), 655360));
             DataOutputStream outStringStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFileStringName), 655360));
             outIndexStream.writeBytes("haplotype file: "+hapFileName+"\ninbred file: "+inbredFileName);
-            for (int i=0;i<index.length;i++) {
+            for (int i=0;i<inbredIndex.length;i++) {
                 outIndexStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
                 outStringStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
-                for (int j=0;j<index[0].length;j++) {
-                    outIndexStream.writeBytes("\t"+index[i][j]);
-                    outStringStream.writeBytes("\t"+inbred.getTaxaName(index[i][j]));
+                for (int j=0;j<inbredIndex[0].length;j++) {
+                    outIndexStream.writeBytes("\t"+inbredIndex[i][j]);
+                    outStringStream.writeBytes("\t"+inbred.getTaxaName(inbredIndex[i][j]));
             }
         }
             outStringStream.close();
