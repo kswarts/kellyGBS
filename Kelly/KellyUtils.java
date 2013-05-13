@@ -468,47 +468,6 @@ public class KellyUtils {
         ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
    }
    
-   public static void SubsetSitesInAlignments(String inFileRef, boolean gzRef, String inFileMod, boolean gzMod) {
-       String inFileRefName= (gzRef==true)?dir+inFileRef+".hmp.txt.gz":dir+inFileRef+".hmp.txt";
-       String inFileModName= (gzMod==true)?dir+inFileMod+".hmp.txt.gz":dir+inFileMod+".hmp.txt";
-       String outFileName= dir+inFileMod+"_sitesMatch"+inFileRef+".hmp.txt";
-       Alignment ref= ImportUtils.readFromHapmap(inFileRefName, null);
-       Alignment mod= ImportUtils.readFromHapmap(inFileModName, null);
-       ArrayList<Integer> subSite= new ArrayList<Integer>();
-       int[] refPos= ref.getPhysicalPositions();
-       int currModPos= 0;
-       //check to make sure that maj/min are the same between alignments for physical positions that match
-       int sitesWithSamePos= 0;
-       int disagree= 0;
-       try{
-           DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dir+inFileMod+inFileRef+".SystemOutput.txt"), 655360));
-           outStream.writeBytes("Maj/min allele of sites in modified/reference file that do not match site at corresponding physical position:");
-           for (int site= 0;site<mod.getSiteCount();site++) {
-               currModPos= mod.getPositionInLocus(site);
-               int refIndex= Arrays.binarySearch(refPos, currModPos);
-               if (refIndex>0) {
-                   sitesWithSamePos++;
-                   if ((ref.getMajorAllele(refIndex)==mod.getMajorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMinorAllele(site))||
-                           (ref.getMajorAllele(refIndex)==mod.getMinorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMajorAllele(site))) subSite.add(site);
-                   else {
-                       outStream.writeBytes("Physical position: "+mod.getPositionInLocus(site)+"\tSiteIndex: "+site+"/"+refIndex+"\tMod/Ref Maj: ("+mod.getMajorAlleleAsString(site)+"/"+ref.getMajorAlleleAsString(refIndex)+")"+"\tMod/Ref Min: ("+mod.getMinorAlleleAsString(site)+"/"+ref.getMinorAlleleAsString(refIndex)+")");
-                       disagree++;
-                   }
-               }
-           }
-           outStream.writeBytes(disagree+" out of "+sitesWithSamePos+" sites with same physical position do not share the same maj/min allele");
-           outStream.close();
-       }
-        
-      catch(IOException e) {
-           System.out.println(e);
-       }
-       subSite.trimToSize();
-       int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[subSite.size()]));
-       Alignment sub= FilterAlignment.getInstance(mod, keepSite);
-       ExportUtils.writeToHapmap(sub, true, outFileName, '\t', null);
-   }
-   
    public static void SitesWithSamePhysicalPositions(String inFile, boolean gz) {
        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
@@ -563,11 +522,7 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
        
-       //for matchSitesInAlignment
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inMod= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
-       String inRef= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
-       SubsetSitesInAlignments(inRef,false,inMod,false);
+       
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
