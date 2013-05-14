@@ -69,8 +69,9 @@ public class AssignHaplotypes {
     public static void AssignInbredIdentityToHaps(String hapFile, boolean gzHap, String inbredRefFile, boolean gzInbred, int siteBlock, double mismatchTol) {
        String hapFileName= (gzHap==true)?dir+hapFile+".hmp.txt.gz":dir+hapFile+".hmp.txt";
        String inbredFileName= (gzInbred==true)?dir+inbredRefFile+".hmp.txt.gz":dir+inbredRefFile+".hmp.txt";
-       String outFileStringName= dir+hapFile+"MatchedForIdentityTo"+inbredFileName+"_String.txt";
-       String outFileIndexName= dir+hapFile+"MatchedForIdentityTo"+inbredFileName+"_InbredIndexNum.txt";
+       String outTaxaStringName= dir+hapFile+"MatchedForIdentityTo"+inbredFileName+"_String.txt";
+       String outTaxaIndexName= dir+hapFile+"MatchedForIdentityTo"+inbredFileName+"_InbredIndexNum.txt";
+       String outHaploIndexName= dir+hapFile+"MatchedForIdentityTo"+inbredFileName+"_HaploIndexNum.txt";
        Alignment hap= ImportUtils.readFromHapmap(hapFileName, null);
        Alignment inbred= ImportUtils.readFromHapmap(inbredFileName, null);
        
@@ -95,7 +96,8 @@ public class AssignHaplotypes {
                    int countSame= 0;
                    int comparedSites= 0;
                    for (int site= block+0; site<Math.min(block+siteBlock,hap.getSequenceCount()); site++) {
-                       if (hap.getBase(taxon, site)!=diploidN && inbred.getBase(taxon, site)!=diploidN) {
+                       if (hap.getBase(taxon, site)!=diploidN && inbred.getBase(taxon, site)!=diploidN && 
+                               hap.isHeterozygous(taxon, site)==false && inbred.isHeterozygous(taxon, site)==false) {
                            comparedSites++;
                            if (hap.getBase(taxon, site)==inbred.getBase(taxon, site)) countSame++;
                        }
@@ -110,19 +112,29 @@ public class AssignHaplotypes {
            }
        }
        try{
-            DataOutputStream outIndexStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFileIndexName), 655360));
-            DataOutputStream outStringStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFileStringName), 655360));
-            outIndexStream.writeBytes("haplotype file: "+hapFileName+"\ninbred file: "+inbredFileName);
+            DataOutputStream outTaxaIndexStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outTaxaIndexName), 655360));
+            DataOutputStream outTaxaStringStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outTaxaStringName), 655360));
+            DataOutputStream outHaploIndexStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outTaxaStringName), 655360));
+            outTaxaIndexStream.writeBytes("haplotype file: "+hapFileName+"\ninbred file: "+inbredFileName);
+            outTaxaStringStream.writeBytes("haplotype file: "+hapFileName+"\ninbred file: "+inbredFileName);
+            outHaploIndexStream.writeBytes("haplotype file: "+hapFileName+"\ninbred file: "+inbredFileName);
             for (int i=0;i<inbredIndex.length;i++) {
-                outIndexStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
-                outStringStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
+                outTaxaIndexStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
+                outTaxaStringStream.writeBytes("\n"+hap.getTaxaName(i)+"\t");
                 for (int j=0;j<inbredIndex[0].length;j++) {
-                    outIndexStream.writeBytes("\t"+inbredIndex[i][j]);
-                    outStringStream.writeBytes("\t"+inbred.getTaxaName(inbredIndex[i][j]));
+                    outTaxaIndexStream.writeBytes("\t"+inbredIndex[i][j]);
+                    outTaxaStringStream.writeBytes("\t"+inbred.getTaxaName(inbredIndex[i][j]));
             }
         }
-            outStringStream.close();
-            outIndexStream.close();
+            for (int i=0;i<hapIndex.length;i++) {
+                outHaploIndexStream.writeBytes("\n"+inbred.getTaxaName(i)+"\t");
+                for (int j=0;j<inbredIndex[0].length;j++) {
+                    outHaploIndexStream.writeBytes("\t"+hapIndex[i][j]);
+            }
+        }
+            outTaxaStringStream.close();
+            outTaxaIndexStream.close();
+            outHaploIndexStream.close();
         }
         
         catch(IOException e) {

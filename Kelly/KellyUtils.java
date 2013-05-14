@@ -429,6 +429,7 @@ public class KellyUtils {
         }
         IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
         Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
+        System.out.println("Filtering for only polymorphic sites...");
         //filter for sites that are polymorphic
         ArrayList<Integer> subSite= new ArrayList<Integer>();
         for (int s= 0; s<align.getSiteCount(); s++) {
@@ -522,7 +523,9 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
        
-       
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.4_BPEC/";
+       String inHapmap= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10";
+       SubsetHapmapByTaxaCov(inHapmap, .1, true);
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
