@@ -46,6 +46,7 @@ public class KellyUtils {
     public static Date theDate = new Date();
     public static FastDateFormat fdf = FastDateFormat.getInstance("yyyy-MM-dd:HH-mm-ss");
     public static String theDateString = fdf.format(theDate);
+    public static byte diploidN= (byte) 0xff;
 
     
    public static void TagsByTaxaToFastq(String inFile, String outFile) {
@@ -485,6 +486,21 @@ public class KellyUtils {
        Object[] dups= firstIndexBad.toArray();
    }
    
+   public static void MaskSites(String inFile, boolean gz, int maskRate) {
+       String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       String outHapMapFileName= dir+inFile+"_masked.hmp.txt";
+       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+       System.out.println("Read in hapmap "+inHapMapFileName);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+       for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {            
+            for (int site= taxon;site<a.getSiteCount();site+= maskRate) {
+                mna.setBase(taxon, site, diploidN);
+            }
+       }
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, outHapMapFileName, '\t', null);
+   }
+   
    public static void main (String args[]) {
              
 //       //args for FilterMergedTBT
@@ -523,9 +539,10 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
        
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.4_BPEC/";
-       String inHapmap= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10";
-       SubsetHapmapByTaxaCov(inHapmap, .1, true);
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.6_MergeDupSNPs/";
+       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       SubsetHapmapByTaxaCov(inHapmap, .1, true);
+       MaskSites(inHapmap,false,300);
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";

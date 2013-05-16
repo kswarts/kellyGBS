@@ -4,7 +4,6 @@
  */
 package Kelly;
 
-import static Kelly.KellyUtils.dir;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
@@ -15,6 +14,9 @@ import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
+import net.maizegenetics.pal.ids.Identifier;
+import net.maizegenetics.pal.ids.SimpleIdGroup;
 import org.apache.commons.lang.ArrayUtils;
 
 /**
@@ -28,7 +30,7 @@ public class AssignHaplotypes {
     public static void MatchSitesToAlignment(String inFileRef, boolean gzRef, String inFileMod, boolean gzMod) {
        String inFileRefName= (gzRef==true)?dir+inFileRef+".hmp.txt.gz":dir+inFileRef+".hmp.txt";
        String inFileModName= (gzMod==true)?dir+inFileMod+".hmp.txt.gz":dir+inFileMod+".hmp.txt";
-       String outFileName= dir+inFileMod+"_sitesMatch"+inFileRef+".hmp.txt";
+       String outFileName= dir+inFileRef+"_with"+inFileMod+"TaxaIncluded.hmp.txt.gz";
        Alignment ref= ImportUtils.readFromHapmap(inFileRefName, null);
        Alignment mod= ImportUtils.readFromHapmap(inFileModName, null);
        ArrayList<Integer> subSite= new ArrayList<Integer>();
@@ -39,21 +41,22 @@ public class AssignHaplotypes {
        int disagree= 0;
        try{
            DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dir+inFileMod+inFileRef+".SystemOutput.txt"), 655360));
-           outStream.writeBytes("Maj/min allele of sites in modified/reference file that do not match site at corresponding physical position:");
+           outStream.writeBytes("RefFile: "+inFileRefName+"\nModFile: "+inFileModName+"\nMaj/min allele of sites in modified/reference file that do not match site at corresponding physical position:");
            for (int site= 0;site<mod.getSiteCount();site++) {
                currModPos= mod.getPositionInLocus(site);
                int refIndex= Arrays.binarySearch(refPos, currModPos);
-               if (refIndex>0) {
+               if (refIndex>-1) {
                    sitesWithSamePos++;
                    if ((ref.getMajorAllele(refIndex)==mod.getMajorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMinorAllele(site))||
                            (ref.getMajorAllele(refIndex)==mod.getMinorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMajorAllele(site))) subSite.add(site);
                    else {
-                       outStream.writeBytes("Physical position: "+mod.getPositionInLocus(site)+"\tSiteIndex: "+site+"/"+refIndex+"\tMod/Ref Maj: ("+mod.getMajorAlleleAsString(site)+"/"+ref.getMajorAlleleAsString(refIndex)+")"+"\tMod/Ref Min: ("+mod.getMinorAlleleAsString(site)+"/"+ref.getMinorAlleleAsString(refIndex)+")");
+                       outStream.writeBytes("\nPhysical position: "+mod.getPositionInLocus(site)+"\tSiteIndex: "+site+"/"+refIndex+"\tMod/Ref Maj: ("+mod.getMajorAlleleAsString(site)+"/"+ref.getMajorAlleleAsString(refIndex)+")"+"\tMod/Ref Min: ("+mod.getMinorAlleleAsString(site)+"/"+ref.getMinorAlleleAsString(refIndex)+")");
                        disagree++;
                    }
                }
            }
-           outStream.writeBytes(disagree+" out of "+sitesWithSamePos+" sites with same physical position do not share the same maj/min allele");
+           outStream.writeBytes("\n"+disagree+" out of "+sitesWithSamePos+" sites with same physical position do not share the same maj/min allele");
+           System.out.println(disagree+" out of "+sitesWithSamePos+" sites with same physical position do not share the same maj/min allele");
            outStream.close();
        }
         
@@ -63,7 +66,28 @@ public class AssignHaplotypes {
        subSite.trimToSize();
        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[subSite.size()]));
        Alignment sub= FilterAlignment.getInstance(mod, keepSite);
-       ExportUtils.writeToHapmap(sub, true, outFileName, '\t', null);
+       
+       //modify IdGroup for the mod file names to reflect origin
+       SimpleIdGroup newNames=  SimpleIdGroup.getInstance(sub.getIdGroup());
+       for (int name= 0;name<newNames.getIdCount();name++) {
+           newNames.setIdentifier(name, Identifier.getMergedInstance(new Identifier("HappyMap"), newNames.getIdentifier(name)));
+       }
+       System.out.println("Generating new hapmap with "+sub.getSequenceCount()+" additional taxa with information at "+sub.getSiteCount()+" sites");
+       int[] subPos= sub.getPhysicalPositions();
+       int currRefPos= 0;
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(ref, mod.getSequenceCount()+ref.getSequenceCount(), ref.getSiteCount());
+       for (int taxon=0;taxon<sub.getSequenceCount();taxon++) {
+           mna.addTaxon(newNames.getIdentifier(taxon));
+           System.out.println("Adding taxon: "+newNames.getName(taxon));
+           for (int site= 0;site<ref.getSiteCount();site++) {
+               currRefPos= ref.getPositionInLocus(site);
+               int subIndex= Arrays.binarySearch(subPos, currRefPos);
+               if (subIndex>-1) mna.setBase(taxon+ref.getSequenceCount(), site, sub.getBase(taxon, subIndex));
+           }
+       }
+       
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, outFileName, '\t', null);
    }
     
     public static void AssignInbredIdentityToHaps(String hapFile, boolean gzHap, String inbredRefFile, boolean gzInbred, int siteBlock, double mismatchTol) {
@@ -145,8 +169,8 @@ public class AssignHaplotypes {
     public static void main(String[] args) {
         //for matchSitesInAlignment
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inMod= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
-       String inRef= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
+       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String inMod= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
        MatchSitesToAlignment(inRef,false,inMod,false);
     }
 }

@@ -295,12 +295,12 @@ public class LearnTreesImputation {
 //       System.out.println("Best Site: "+noMissing.getSNPID(root)+" ("+root+")"+"\n"+"GD for major allele: "+GDRoot[0]+"\n"+"GD for minor allele: "+GDRoot[1]+"\n"+"GD for missing: "+GDRoot[2]);
         
         //run ed's code for merging gametes to generate haplotypes
-        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.4_BPEC/";
-        String base= "AllTaxa_BPEC_AllZea_GBS_Build_July_2012_FINAL_Rev1_chr10";
-        String inFile= dir+base+".hmp.txt.gz";
+        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+        String inFile= dir+base+".hmp.txt";
         String mergeFile= dir+base+"_HaplotypeMerge.hmp.txt";
         String errorOne= dir+base+"_HaplotypeMerge_Error1.txt";
         String errorTwo= dir+base+"_HaplotypeMerge_Error2.txt";
-        MergeIdenticalGametes endChr10= new MergeIdenticalGametes(inFile, mergeFile, errorOne, errorTwo,.01,500);
+        MergeIdenticalGametes endChr10= new MergeIdenticalGametes(inFile, mergeFile, errorOne, errorTwo,.01,1000);
    }
 }
