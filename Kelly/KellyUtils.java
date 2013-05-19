@@ -501,6 +501,11 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(mna, true, outHapMapFileName, '\t', null);
    }
    
+   public static void HapmapToVCF(String inFile, boolean gz) {
+       Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"),null);
+       ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
+   }
+   
    public static void main (String args[]) {
              
 //       //args for FilterMergedTBT
@@ -539,14 +544,23 @@ public class KellyUtils {
 //       HapmapToCHIAMO(inWGSFile);
 //       HapmapToSample(inWGSFile);
        
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.6_MergeDupSNPs/";
-       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-//       SubsetHapmapByTaxaCov(inHapmap, .1, true);
-       MaskSites(inHapmap,false,300);
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/2.6_MergeDupSNPs/";
+//       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+////       SubsetHapmapByTaxaCov(inHapmap, .1, true);
+//       MaskSites(inHapmap,false,300);
+       
+       //subset for heterozygosity
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       SubsetHapmapByHeterozygosity(inHapmap,.5,true,true);
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
 //       SitesWithSamePhysicalPositions(inFile,false);
+       
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       HapmapToVCF(inFile, false);
 
    }
 }
