@@ -32,6 +32,7 @@ import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
+import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
 import org.apache.commons.lang.ArrayUtils;
@@ -542,8 +543,9 @@ public class KellyUtils {
             System.out.println("Sites in original alignment: "+a.getSiteCount());
             MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
             for (int site= 0; site<a.getSiteCount();site++) {
-                if (a.getMajorAlleleAsString(site)=="Z" ||a.getMinorAlleleAsString(site)=="Z") mna.clearSiteForRemoval(site);
+                if (a.getAlleles(site)[2]==NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE) mna.clearSiteForRemoval(site);
             }
+            mna.clean();
             System.out.println("Sites after filtering: "+mna.getSiteCount());
        }
        ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
@@ -602,8 +604,8 @@ public class KellyUtils {
 //       SitesWithSamePhysicalPositions(inFile,false);
        
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge";
-       HapmapToVCF(inFile, false, true);
+       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024";
+       HapmapToVCF(inFile, true, true);
 
    }
 }
