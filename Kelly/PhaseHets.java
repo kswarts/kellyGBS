@@ -4,9 +4,15 @@
  */
 package Kelly;
 
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableSingleEncodeAlignment;
 
 /**
@@ -26,7 +32,96 @@ public class PhaseHets {
     public static final byte INSERT = (byte) 0x44;
     public static final byte GAP = (byte) 0x55;
     
-    public static void phase(String hapFile, String fileToPhase, String outFile) {
+    public static String dir;
+    
+    public static void phaseByHapFile(String hapFile, String fileToPhase, double mismatchRate) {
+        Alignment haps= ImportUtils.readFromHapmap(hapFile, null);
+        Alignment phase= ImportUtils.readFromHapmap(fileToPhase,null);
+        MutableNucleotideAlignment newOne= MutableNucleotideAlignment.getInstance(phase.getIdGroup(), phase.getSiteCount());
+        MutableNucleotideAlignment newTwo= MutableNucleotideAlignment.getInstance(phase.getIdGroup(), phase.getSiteCount());
+        if (haps.getSiteCount()!=phase.getSiteCount()) System.out.println("Sites do not match between alignment and haplotypes");
+        //based on 20 minor allele segments, choose top two haplotypes that best describe alignment segment. Go through and assign het alignment to new
+        //alignment strands. Make it a sliding window so there is overlap and everything gets on the correct strand. If only one looks good for a certain
+        //window, just go based on that
+        for (int site=0;site<phase.getSequenceCount();site++) {
+            
+        }
+    }
+    
+    public static void getClosestHaps() {
+        
+    }
+    
+    public static void GetExpectedHomozygosity(String inFile, double minCov, double minMAF, double hetCutoff, boolean gz) {
+        Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
+        System.out.println("reading from file: "+dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"));
+        //filter for MAF
+        a= KellyUtils.SubsetHapmapByMAF(a, minMAF, false);
+        //filter for coverage\
+        a= KellyUtils.SubsetHapmapByTaxaCov(a, minCov, false, true);
+        Alignment highHet= KellyUtils.SubsetHapmapByHeterozygosity(a, hetCutoff, true, false,true);
+        Alignment lowHet= KellyUtils.SubsetHapmapByHeterozygosity(a, hetCutoff, false, false,true);
+        if (highHet.getSequenceCount()>0) {
+            ExportUtils.writeToHapmap(highHet, true, dir+inFile+"highHet.hmp.txt.gz", '\t', null);
+            Alignment newHighHet= ImportUtils.readFromHapmap(dir+inFile+"highHet.hmp.txt.gz", null);
+            ArrayList<Double> highHetHomoSeg= new ArrayList<Double>(newHighHet.getSiteCount()*newHighHet.getSequenceCount());
+            for (int taxon=0; taxon<newHighHet.getSequenceCount(); taxon++) {
+                int highCount= 0;
+                for (int site= 0; site<newHighHet.getSiteCount(); taxon++) {
+                    if (newHighHet.getBaseArray(taxon, site)[0]==newHighHet.getBaseArray(taxon, site)[1]) highCount++;
+                    else {
+                        highHetHomoSeg.add(Math.pow(1-minMAF,highCount));
+                        highCount= 0;
+                    }
+                }
+            }
+            highHetHomoSeg.trimToSize();
+            
+            try{
+            DataOutputStream highHetsOut= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dir+inFile+"_highHets.txt"), 655360));
+            highHetsOut.writeBytes("in file name: "+inFile+"\nminCov: "+minCov+"\nminMAF: "+minMAF+"\nHet cutoff: "+hetCutoff);
+            for (int high= 0; high < highHetHomoSeg.size(); high++) {
+                highHetsOut.writeBytes("\n"+highHetHomoSeg.get(high));
+            }
+            highHetsOut.close();
+            }
+
+           catch(IOException e) {
+                System.out.println(e);
+            }
+        }
+        if (lowHet.getSequenceCount()>0) {
+            ExportUtils.writeToHapmap(lowHet, true, dir+inFile+"lowHet.hmp.txt.gz", '\t', null);
+            Alignment newLowHet= ImportUtils.readFromHapmap(dir+inFile+"lowHet.hmp.txt.gz", null);
+            ArrayList<Double> lowHetHomoSeg= new ArrayList<Double>(newLowHet.getSiteCount()*newLowHet.getSequenceCount());
+            for (int taxon=0; taxon<newLowHet.getSequenceCount(); taxon++) {
+                int lowCount= 0;
+                for (int site= 0; site<newLowHet.getSiteCount(); taxon++) {
+                    if (newLowHet.getBaseArray(taxon, site)[0]==newLowHet.getBaseArray(taxon, site)[1]) lowCount++;
+                    else {
+                        lowHetHomoSeg.add(Math.pow(1-minMAF,lowCount));
+                        lowCount= 0;
+                    }
+                }
+            }
+            lowHetHomoSeg.trimToSize();
+            
+            try{
+            DataOutputStream lowHetsOut= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dir+inFile+"_lowHets.txt"), 655360));
+            lowHetsOut.writeBytes("in file name: "+inFile+"\nminCov: "+minCov+"\nminMAF: "+minMAF+"\nHet cutoff: "+hetCutoff);
+            for (int low= 0; low < lowHetHomoSeg.size(); low++) {
+                lowHetsOut.writeBytes("\n"+lowHetHomoSeg.get(low));
+            }
+            lowHetsOut.close();
+            }
+
+           catch(IOException e) {
+                System.out.println(e);
+            }
+        }
+    }
+    
+    public static void phaseByMarkov(String hapFile, String fileToPhase, String outFile) {
         Alignment haps= ImportUtils.readFromHapmap(hapFile, null);
         Alignment phase= ImportUtils.readFromHapmap(fileToPhase,null);
         if (haps.getSiteCount()!=phase.getSiteCount()) System.out.println("Sites do not match between alignment and haplotypes");
@@ -147,6 +242,12 @@ public class PhaseHets {
     }
     
     public static void main(String[] args) {
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String hapmap= dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt";
+//        String haplotype= dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge.hmp.txt";
+//        String outFile= dir+"SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_PhasedFromAllZeaHaplotypeMerge.hmp.txt";
+//        phaseByMarkov(hapmap,haplotype,outFile);
         
+        GetExpectedHomozygosity("AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024",.7,.1,.15,true);
     }
 }

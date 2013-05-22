@@ -35,7 +35,7 @@ public class KellyPipelinesGeneric {
 //        convertTOPMToText();
 //        tagCountsToFastQ();
 //        runQseqToTagCountPlugin();
-        runFastqToTagCountPlugin();
+//        runFastqToTagCountPlugin();
 //        runMergeMultipleTagCountPlugin();
 //        runQseqToTBTPlugin();
 //        runFastqToTBTPlugin();
@@ -63,7 +63,7 @@ public class KellyPipelinesGeneric {
 //        analyzeB08AAABXX_1_PstI_IBM_TBTByte();
 //        analyzeIBM94ApeKI();
 //        testTOPMExpandMaxVariants();
-//        runTagsToSNPByAlignmentPlugin();
+        runTagsToSNPByAlignmentPlugin();
 //        filterHapMapForTaxa();
 //        getHapMapReport();
    }

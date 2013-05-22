@@ -418,10 +418,37 @@ public class KellyUtils {
         ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
    }
    
-   public static void SubsetHapmapByTaxaCov(String inFile, double minCov, boolean gz) {
-        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
-        String outHapMapFileName= dir+inFile+"subset_"+"_minCov"+minCov+".hmp.txt";
-        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+   public static Alignment SubsetHapmapByMAF(Alignment a, double MAF, boolean toFile) {
+       System.out.println("Subsetting by MAF "+MAF);
+       System.out.println("Original number of sites: "+a.getSiteCount());
+       MutableNucleotideAlignment newAlign= MutableNucleotideAlignment.getInstance(a);
+        for (int site= 0; site<a.getSiteCount(); site++) {
+            if (a.getMinorAlleleFrequency(site)<MAF) newAlign.clearSiteForRemoval(site);
+        }
+        newAlign.clean();
+        System.out.println("Sites remaining: "+newAlign.getSiteCount());
+        if (toFile==true) ExportUtils.writeToHapmap(newAlign, true, dir+a+"subsetByMAF_"+MAF+".hmp.txt.gz", '\t', null);
+        return newAlign;
+   }
+   
+   public static Alignment FilterForPolymorphicSites(Alignment a) {
+       System.out.println("Filter for polymorphic sites...");
+       ArrayList<Integer> subSite= new ArrayList<Integer>();
+        for (int s= 0; s<a.getSiteCount(); s++) {
+            if (a.isPolymorphic(s) == true) subSite.add(s);
+        }
+        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(a)]));
+        Alignment newAlign= FilterAlignment.getInstance(a, keepSite);
+        System.out.println("Final num of taxa: "+newAlign.getSequenceCount());
+        System.out.println("Final num of sites: "+newAlign.getSiteCount());
+        return newAlign;
+   }
+   
+   public static Alignment SubsetHapmapByTaxaCov(Alignment a, double minCov, boolean toFile, boolean filterPolymorphic) {
+        System.out.println("Subsetting by minimum taxa coverage: "+minCov);
+        System.out.println("Original num of taxa: "+a.getSequenceCount());
+        System.out.println("Original num of sites: "+a.getSiteCount());
+        String outHapMapFileName= dir+a+"subset_"+"_minCov"+minCov+".hmp.txt.gz";
         IdGroup IDs= a.getIdGroup();
         boolean[] badTaxa= new boolean[a.getSequenceCount()];
         double numSites= a.getSiteCount();
@@ -430,21 +457,25 @@ public class KellyUtils {
         }
         IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
         Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
-        System.out.println("Filtering for only polymorphic sites...");
-        //filter for sites that are polymorphic
-        ArrayList<Integer> subSite= new ArrayList<Integer>();
-        for (int s= 0; s<align.getSiteCount(); s++) {
-            if (align.isPolymorphic(s) == true) subSite.add(s);
+        if (filterPolymorphic==true) {
+            //filter for sites that are polymorphic
+            Alignment newAlign= FilterForPolymorphicSites(align);
+            if (toFile==true) ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+            return newAlign;
         }
-        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(align)]));
-        Alignment newAlign= FilterAlignment.getInstance(align, keepSite);
-        ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+        else {
+            if (toFile==true) ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
+            System.out.println("Final num of taxa: "+align.getSequenceCount());
+            System.out.println("Final num of sites: "+align.getSiteCount());
+            return align;
+        }
    }
    
-   public static void SubsetHapmapByHeterozygosity(String inFile,double hetCutoff,boolean desireHets, boolean gz) {
-        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
-        String outHapMapFileName= dir+inFile+"subset_"+"_hetCutoff"+hetCutoff+".hmp.txt";
-        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+   public static Alignment SubsetHapmapByHeterozygosity(Alignment a, double hetCutoff,boolean desireHets, boolean toFile, boolean filterPolymorphic) {
+        System.out.println("Subsetting by Heterozygosity "+(desireHets==true?"greater than "+hetCutoff:"less than or equal to "+hetCutoff));
+        System.out.println("Original num of taxa: "+a.getSequenceCount());
+        System.out.println("Original num of sites: "+a.getSiteCount());
+        String outHapMapFileName= dir+a+"subset_"+"_hetCutoff"+hetCutoff+".hmp.txt";
         IdGroup IDs= a.getIdGroup();
         boolean[] badTaxa= new boolean[a.getSequenceCount()];
         double numSites= a.getSiteCount();
@@ -460,14 +491,18 @@ public class KellyUtils {
         }
         IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
         Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
-        //filter for sites that are polymorphic
-        ArrayList<Integer> subSite= new ArrayList<Integer>();
-        for (int s= 0; s<align.getSiteCount(); s++) {
-            if (align.isPolymorphic(s) == true) subSite.add(s);
+        if (filterPolymorphic==true) {
+            //filter for sites that are polymorphic 
+            Alignment newAlign= FilterForPolymorphicSites(align);
+            if (toFile==true) ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+            return newAlign;
         }
-        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(align)]));
-        Alignment newAlign= FilterAlignment.getInstance(align, keepSite);
-        ExportUtils.writeToHapmap(newAlign, true, outHapMapFileName, '\t', null);
+        else {
+            if (toFile==true) ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
+            System.out.println("Final num of taxa: "+align.getSequenceCount());
+            System.out.println("Final num of sites: "+align.getSiteCount());
+            return align;
+        }
    }
    
    public static void SitesWithSamePhysicalPositions(String inFile, boolean gz) {
@@ -562,7 +597,7 @@ public class KellyUtils {
 //       SitesWithSamePhysicalPositions(inFile,false);
        
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge";
        HapmapToVCF(inFile, false);
 
    }
