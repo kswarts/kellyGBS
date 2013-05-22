@@ -503,6 +503,9 @@ public class KellyUtils {
    
    public static void HapmapToVCF(String inFile, boolean gz) {
        Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"),null);
+       for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {
+           for (int site= 0; site<)
+       }
        ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
    }
    
