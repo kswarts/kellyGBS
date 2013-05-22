@@ -536,10 +536,15 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(mna, true, outHapMapFileName, '\t', null);
    }
    
-   public static void HapmapToVCF(String inFile, boolean gz) {
+   public static void HapmapToVCF(String inFile, boolean gz, boolean removeGapSites) {
        Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"),null);
-       for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {
-           for (int site= 0; site<)
+       if (removeGapSites==true) {
+            System.out.println("Sites in original alignment: "+a.getSiteCount());
+            MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+            for (int site= 0; site<a.getSiteCount();site++) {
+                if (a.getMajorAlleleAsString(site)=="Z" ||a.getMinorAlleleAsString(site)=="Z") mna.clearSiteForRemoval(site);
+            }
+            System.out.println("Sites after filtering: "+mna.getSiteCount());
        }
        ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
    }
@@ -598,7 +603,7 @@ public class KellyUtils {
        
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge";
-       HapmapToVCF(inFile, false);
+       HapmapToVCF(inFile, false, true);
 
    }
 }
