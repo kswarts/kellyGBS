@@ -538,9 +538,7 @@ public class KellyUtils {
    
    public static void HapmapToVCF(String inFile, boolean gz) {
        Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"),null);
-       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
-       mna.setDepthForAlleles(diploidN, diploidN, new byte[]{1,1});
-       ExportUtils.writeToVCF(mna, dir+inFile+".vcf", '\t');
+       ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
    }
    
    public static void main (String args[]) {
@@ -596,7 +594,7 @@ public class KellyUtils {
 //       SitesWithSamePhysicalPositions(inFile,false);
        
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge";
        HapmapToVCF(inFile, false);
 
    }

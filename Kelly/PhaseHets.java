@@ -62,13 +62,13 @@ public class PhaseHets {
         Alignment highHet= KellyUtils.SubsetHapmapByHeterozygosity(a, hetCutoff, true, false,true);
         Alignment lowHet= KellyUtils.SubsetHapmapByHeterozygosity(a, hetCutoff, false, false,true);
         if (highHet.getSequenceCount()>0) {
-            ExportUtils.writeToHapmap(highHet, true, dir+inFile+"highHet.txt.hmp.gz", '\t', null);
-            Alignment newHighHet= ImportUtils.readFromHapmap(dir+inFile+"highHet.txt.hmp.gz", null);
+            ExportUtils.writeToHapmap(highHet, true, dir+inFile+"highHet.hmp.txt.gz", '\t', null);
+            Alignment newHighHet= ImportUtils.readFromHapmap(dir+inFile+"highHet.hmp.txt.gz", null);
             ArrayList<Double> highHetHomoSeg= new ArrayList<Double>(newHighHet.getSiteCount()*newHighHet.getSequenceCount());
             for (int taxon=0; taxon<newHighHet.getSequenceCount(); taxon++) {
                 int highCount= 0;
                 for (int site= 0; site<newHighHet.getSiteCount(); taxon++) {
-                    if (newHighHet.isHeterozygous(taxon, site)==false) highCount++;
+                    if (newHighHet.getBaseArray(taxon, site)[0]==newHighHet.getBaseArray(taxon, site)[1]) highCount++;
                     else {
                         highHetHomoSeg.add(Math.pow(1-minMAF,highCount));
                         highCount= 0;
@@ -91,13 +91,13 @@ public class PhaseHets {
             }
         }
         if (lowHet.getSequenceCount()>0) {
-            ExportUtils.writeToHapmap(lowHet, true, dir+inFile+"lowHet.txt.hmp.gz", '\t', null);
-            Alignment newLowHet= ImportUtils.readFromHapmap(dir+inFile+"lowHet.txt.hmp.gz", null);
+            ExportUtils.writeToHapmap(lowHet, true, dir+inFile+"lowHet.hmp.txt.gz", '\t', null);
+            Alignment newLowHet= ImportUtils.readFromHapmap(dir+inFile+"lowHet.hmp.txt.gz", null);
             ArrayList<Double> lowHetHomoSeg= new ArrayList<Double>(newLowHet.getSiteCount()*newLowHet.getSequenceCount());
             for (int taxon=0; taxon<newLowHet.getSequenceCount(); taxon++) {
                 int lowCount= 0;
                 for (int site= 0; site<newLowHet.getSiteCount(); taxon++) {
-                    if (newLowHet.isHeterozygous(taxon, site)==false) lowCount++;
+                    if (newLowHet.getBaseArray(taxon, site)[0]==newLowHet.getBaseArray(taxon, site)[1]) lowCount++;
                     else {
                         lowHetHomoSeg.add(Math.pow(1-minMAF,lowCount));
                         lowCount= 0;
@@ -243,11 +243,11 @@ public class PhaseHets {
     
     public static void main(String[] args) {
         dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        String hapmap= dir+"SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt";
+        String hapmap= dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt";
 //        String haplotype= dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge.hmp.txt";
 //        String outFile= dir+"SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_PhasedFromAllZeaHaplotypeMerge.hmp.txt";
 //        phaseByMarkov(hapmap,haplotype,outFile);
         
-        GetExpectedHomozygosity("SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",.7,.1,.15,false);
+        GetExpectedHomozygosity("AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024",.7,.1,.15,true);
     }
 }

@@ -212,6 +212,6 @@ public class AssignHaplotypes {
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
        String inMod= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
-       MergeToRefAlignment(inRef,false,inMod,false,":HapmapV2");
+       MergeToRefAlignment(inRef,true,inMod,false,":HapmapV2");
     }
 }
