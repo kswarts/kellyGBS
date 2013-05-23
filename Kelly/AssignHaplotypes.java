@@ -207,6 +207,43 @@ public class AssignHaplotypes {
         }
     }
     
+    public static void findHomozygousSegments(String inFile, boolean gz, int segSize) {
+       String inFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       String outFileName= dir+inFile+"HomoSegOnly.hmp.txt.gz";
+       Alignment a= ImportUtils.readFromHapmap(inFileName, null);
+       MutableNucleotideAlignment homo= MutableNucleotideAlignment.getInstance(a);
+       //clear all the allele states in the mutable
+        for (int site = 0; site < homo.getSiteCount(); site++) {
+            for (int taxon = 0; taxon < homo.getSequenceCount(); taxon++) {
+                homo.setBase(taxon, site, diploidN);
+            }
+        }
+        
+        for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+            int segLength= 0;
+            int firstSite= 0;
+            int lastSite= 0;
+            for (int site= 0; site<a.getSiteCount(); site++) {
+                if (a.isHeterozygous(taxon, site)==false) {
+                    segLength++;
+                    if (segLength>segSize) lastSite= site;
+                }
+                else {
+                    if (segLength>segSize) {
+                        for (int s = firstSite; s < lastSite; s++) {
+                            homo.setBase(taxon, site, a.getBase(taxon, s));
+                        }
+                    }
+                    segLength= 0;
+                    firstSite= site+1;
+                }
+            }
+            
+        }
+        homo.clean();
+        ExportUtils.writeToHapmap(homo, true, outFileName, '\t', null);
+    }
+    
     public static void main(String[] args) {
         //for matchSitesInAlignment
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";

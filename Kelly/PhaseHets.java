@@ -9,11 +9,14 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
+import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableSingleEncodeAlignment;
+import net.maizegenetics.pal.distance.IBSDistanceMatrix;
 
 /**
  *
@@ -33,8 +36,9 @@ public class PhaseHets {
     public static final byte GAP = (byte) 0x55;
     
     public static String dir;
+    public static double[] dist;
     
-    public static void phaseByHapFile(String hapFile, String fileToPhase, double mismatchRate) {
+    public static void phaseByHapFile(String hapFile, String fileToPhase, double mismatchTol, int windowSize) {
         Alignment haps= ImportUtils.readFromHapmap(hapFile, null);
         Alignment phase= ImportUtils.readFromHapmap(fileToPhase,null);
         MutableNucleotideAlignment newOne= MutableNucleotideAlignment.getInstance(phase.getIdGroup(), phase.getSiteCount());
@@ -43,13 +47,53 @@ public class PhaseHets {
         //based on 20 minor allele segments, choose top two haplotypes that best describe alignment segment. Go through and assign het alignment to new
         //alignment strands. Make it a sliding window so there is overlap and everything gets on the correct strand. If only one looks good for a certain
         //window, just go based on that
-        for (int site=0;site<phase.getSequenceCount();site++) {
+        for (int window= 0;window<(phase.getSiteCount()/windowSize)+1;window++) {
+            FilterAlignment hapsForWindow= FilterAlignment.getInstance(haps, window, (window+windowSize<phase.getSiteCount())?window+windowSize:phase.getSiteCount());
+            FilterAlignment taxonForWindow= FilterAlignment.getInstance(phase, window, (window+windowSize<phase.getSiteCount())?window+windowSize:phase.getSiteCount());
             
+            byte[] diploidMinor= new byte[taxonForWindow.getSiteCount()]; //make an array of diploid minor allele states for sites in window
+            for (int site = 0; site < taxonForWindow.getSiteCount(); site++) {
+                    diploidMinor[site]= getDiploidBase(taxonForWindow.getMinorAllele(site));
+                }
+            
+            for (int taxon=0;taxon<phase.getSequenceCount();taxon++) {
+                int[] bestHaps= getExplanatoryHaps(hapsForWindow,taxonForWindow,taxon);//get the 10 most similar haplotypes by distance, ranked by index in haps
+                
+                //check to make sure that top haplotypes explain the minor alleles, up to tolerated mismatch
+                int secondTaxon= -1;
+                for (int hapMatch = 1; hapMatch < bestHaps.length; hapMatch++) {
+                    if (secondTaxon>0) break;
+                    int mismatches= 0;
+                    for (int site= 0;site<phase.getSiteCount();site++) {
+                        if (taxonForWindow.getBase(taxon, site)!=diploidMinor[site]) continue;
+                        if(taxonForWindow.getBase(taxon, site)==hapsForWindow.getBase(bestHaps[0], site)||
+                                taxonForWindow.getBase(taxon, site)==hapsForWindow.getBase(bestHaps[hapMatch], site)) continue;
+                        else mismatches++;
+                        if (mismatches>mismatchTol) break;
+                        secondTaxon= hapMatch;
+                    }
+                }
+                //use the top two haplotypes to phase alignment   
+            }
         }
     }
     
-    public static void getClosestHaps() {
-        
+    public static int[] getExplanatoryHaps(FilterAlignment localHaps, FilterAlignment localPhase, int taxonToPhase) {
+        long[] pMj= localPhase.getAllelePresenceForAllSites(taxonToPhase, 0).getBits();
+        long[] pMn= localPhase.getAllelePresenceForAllSites(taxonToPhase, 1).getBits();
+        for (int hap=0;hap<localHaps.getSequenceCount();hap++) {
+            long[] hMj= localHaps.getAllelePresenceForAllSites(taxonToPhase, 0).getBits();
+            long[] hMn= localHaps.getAllelePresenceForAllSites(taxonToPhase, 1).getBits();
+            dist[hap]= IBSDistanceMatrix.computeHetBitDistances(hMj, hMn, pMj, pMn, 50)[0];
+        }
+        double[] sortDist= dist;
+        Arrays.sort(sortDist, 0, dist.length-1);
+        int[] bestHaps= new int[10];
+        for (int index = 0; index < 10; index++) {
+            bestHaps[index]= Arrays.binarySearch(dist, sortDist[index]);
+            
+        }
+        return bestHaps;
     }
     
     public static void GetExpectedHomozygosity(String inFile, double minCov, double minMAF, double hetCutoff, boolean gz) {
