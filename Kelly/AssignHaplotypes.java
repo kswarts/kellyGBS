@@ -230,7 +230,7 @@ public class AssignHaplotypes {
                 }
                 else {
                     if (segLength>segSize) {
-                        for (int s = firstSite; s < lastSite; s++) {
+                        for (int s = firstSite+25; s < lastSite-25; s++) {
                             homo.setBase(taxon, site, a.getBase(taxon, s));
                         }
                     }
