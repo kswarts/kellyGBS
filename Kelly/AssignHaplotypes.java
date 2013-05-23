@@ -231,7 +231,7 @@ public class AssignHaplotypes {
                 else {
                     if (segLength>segSize) {
                         for (int s = firstSite+25; s < lastSite-25; s++) {
-                            homo.setBase(taxon, site, a.getBase(taxon, s));
+                            homo.setBase(taxon, s, a.getBase(taxon, s));
                         }
                     }
                     segLength= 0;
@@ -246,9 +246,14 @@ public class AssignHaplotypes {
     
     public static void main(String[] args) {
         //for matchSitesInAlignment
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       String inMod= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
+//       MergeToRefAlignment(inRef,true,inMod,false,":HapmapV2");
+       
+       //find homozygous segments
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String inMod= "maizeHapMapV2_B73RefGenV2_201203028_chr10";
-       MergeToRefAlignment(inRef,true,inMod,false,":HapmapV2");
+       String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetHet.04-.12minCov.75";
+       findHomozygousSegments(inFile, true, 200);
     }
 }
