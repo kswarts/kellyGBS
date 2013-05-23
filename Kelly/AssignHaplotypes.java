@@ -207,11 +207,14 @@ public class AssignHaplotypes {
         }
     }
     
-    public static void findHomozygousSegments(String inFile, boolean gz, int segSize) {
-       String inFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
-       String outFileName= dir+inFile+"HomoSegOnly.hmp.txt.gz";
-       Alignment a= ImportUtils.readFromHapmap(inFileName, null);
-       MutableNucleotideAlignment homo= MutableNucleotideAlignment.getInstance(a);
+    //focus file and full file must have the same taxa, but the sites can vary
+    public static void findHomozygousSegments(String focusFile, boolean focusGz, String fullFile, boolean fullGz, int segSize) {
+       String focusFileName= (focusGz==true)?dir+focusFile+".hmp.txt.gz":dir+focusFile+".hmp.txt";
+       String fullFileName= (fullGz==true)?dir+fullFile+".hmp.txt.gz":dir+fullFile+".hmp.txt";
+       String outFileName= dir+focusFile+"HomoSegOnly.hmp.txt.gz";
+       Alignment focus= ImportUtils.readFromHapmap(focusFileName, null);
+       Alignment full= ImportUtils.readFromHapmap(fullFileName, null);
+       MutableNucleotideAlignment homo= MutableNucleotideAlignment.getInstance(full);
        //clear all the allele states in the mutable
         for (int site = 0; site < homo.getSiteCount(); site++) {
             for (int taxon = 0; taxon < homo.getSequenceCount(); taxon++) {
@@ -219,19 +222,24 @@ public class AssignHaplotypes {
             }
         }
         
-        for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+        for (int taxon = 0; taxon < focus.getSequenceCount(); taxon++) {
+            int[] fullPos= full.getPhysicalPositions();
             int segLength= 0;
             int firstSite= 0;
             int lastSite= 0;
-            for (int site= 0; site<a.getSiteCount(); site++) {
-                if (a.isHeterozygous(taxon, site)==false) {
+            for (int site= 0; site<focus.getSiteCount(); site++) {
+                if (focus.isHeterozygous(taxon, site)==false) {
                     segLength++;
                     if (segLength>segSize) lastSite= site;
                 }
                 else {
                     if (segLength>segSize) {
-                        for (int s = firstSite+25; s < lastSite-25; s++) {
-                            homo.setBase(taxon, s, a.getBase(taxon, s));
+                        int startPos= focus.getPositionInLocus(firstSite);
+                        int endPos= focus.getPositionInLocus(lastSite);
+                        int fullStartIndex= Arrays.binarySearch(fullPos, startPos);//get indices for the full file based on same physical position
+                        int fullEndIndex= Arrays.binarySearch(fullPos, endPos);
+                        for (int s = (site>25)?fullStartIndex+25:fullStartIndex; s < ((site<full.getSiteCount()-25)?fullEndIndex-25:fullEndIndex); s++) {
+                            homo.setBase(taxon, s, full.getBase(taxon, s));
                         }
                     }
                     segLength= 0;
