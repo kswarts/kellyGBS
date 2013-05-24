@@ -295,12 +295,27 @@ public class LearnTreesImputation {
 //       System.out.println("Best Site: "+noMissing.getSNPID(root)+" ("+root+")"+"\n"+"GD for major allele: "+GDRoot[0]+"\n"+"GD for minor allele: "+GDRoot[1]+"\n"+"GD for missing: "+GDRoot[2]);
         
         //run ed's code for merging gametes to generate haplotypes
-        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-        String inFile= dir+base+".hmp.txt";
-        String mergeFile= dir+base+"_HaplotypeMerge.hmp.txt";
-        String errorOne= dir+base+"_HaplotypeMerge_Error1.txt";
-        String errorTwo= dir+base+"_HaplotypeMerge_Error2.txt";
-        MergeIdenticalGametes endChr10= new MergeIdenticalGametes(inFile, mergeFile, errorOne, errorTwo,.01,1000);
+        runFindMergeHaplotypesPlugin();
+   }
+    
+    public static void runFindMergeHaplotypesPlugin() {
+       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetminCov.4HomozygousSegOnly";
+       String[] testArgs = new String[] {
+            "-hmp",   dir+base+".hmp.txt.gz",
+            "-o",     dir+base+"_HaplotypeMerge.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
+            "-oE",    dir+base+"_HaplotypeMergeError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
+            "-sC",    "8",//Start chromosome\n"
+            "-eC",    "8",// End chromosome\n"
+            "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
+            "-hapSize","5000",//    Preferred haplotype block size in sites\n"
+            "-minPres", "500", //    Minimum number of present sites within input sequence to do the search\n"
+            "-maxHap",  "2000",//    Maximum number of haplotypes per segment\n"
+            "-maxOutMiss",  "0.4",//  Maximum frequency of missing data in the output haplotype"
+       };
+       String[] args = testArgs;
+       FindMergeHaplotypesPlugin plugin = new FindMergeHaplotypesPlugin();
+       plugin.setParameters(args);
+       plugin.performFunction(null);
    }
 }

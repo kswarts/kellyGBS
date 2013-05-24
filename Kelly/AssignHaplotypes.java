@@ -207,11 +207,11 @@ public class AssignHaplotypes {
         }
     }
     
-    //focus file and full file must have the same taxa, but the sites can vary
+    //focus file and full file must have the same taxa, but the sites can vary. Focus file is a subset of full with high quality sites only
     public static void findHomozygousSegments(String focusFile, boolean focusGz, String fullFile, boolean fullGz, int segSize) {
        String focusFileName= (focusGz==true)?dir+focusFile+".hmp.txt.gz":dir+focusFile+".hmp.txt";
        String fullFileName= (fullGz==true)?dir+fullFile+".hmp.txt.gz":dir+fullFile+".hmp.txt";
-       String outFileName= dir+focusFile+"HomoSegOnly.hmp.txt.gz";
+       String outFileName= dir+focusFile+"HomozygousSegOnly.hmp.txt.gz";
        Alignment focus= ImportUtils.readFromHapmap(focusFileName, null);
        Alignment full= ImportUtils.readFromHapmap(fullFileName, null);
        MutableNucleotideAlignment homo= MutableNucleotideAlignment.getInstance(full);
@@ -234,11 +234,11 @@ public class AssignHaplotypes {
                 }
                 else {
                     if (segLength>segSize) {
-                        int startPos= focus.getPositionInLocus(firstSite);
-                        int endPos= focus.getPositionInLocus(lastSite);
+                        int startPos= focus.getPositionInLocus((firstSite<25)?firstSite:firstSite+25);
+                        int endPos= focus.getPositionInLocus(lastSite>focus.getSiteCount()-25?lastSite:lastSite-25);
                         int fullStartIndex= Arrays.binarySearch(fullPos, startPos);//get indices for the full file based on same physical position
                         int fullEndIndex= Arrays.binarySearch(fullPos, endPos);
-                        for (int s = (site>25)?fullStartIndex+25:fullStartIndex; s < ((site<full.getSiteCount()-25)?fullEndIndex-25:fullEndIndex); s++) {
+                        for (int s = fullStartIndex; s < fullEndIndex; s++) {
                             homo.setBase(taxon, s, full.getBase(taxon, s));
                         }
                     }
@@ -261,7 +261,8 @@ public class AssignHaplotypes {
        
        //find homozygous segments
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetHet.04-.12minCov.75";
-       findHomozygousSegments(inFile, true, 200);
+       String focusFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetminCov.4";
+       String fullFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       findHomozygousSegments(focusFile, true, fullFile, true, 200);
     }
 }
