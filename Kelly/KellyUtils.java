@@ -35,6 +35,7 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
+import net.maizegenetics.pal.ids.Identifier;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 
@@ -472,15 +473,32 @@ public class KellyUtils {
         }
    }
    
-   public static Alignment SubsetHapmapByHeterozygosity(Alignment a, double hetCutoff,boolean desireHets, boolean toFile, boolean filterPolymorphic) {
+   public static void MergeAlignments(String inFile1, boolean gz1, String inFile2, boolean gz2, String outFileName) {
+       Alignment a1= ImportUtils.readFromHapmap(dir+inFile1+(gz1==true?".hmp.txt.gz":".hmp.txt"), null);
+       Alignment a2= ImportUtils.readFromHapmap(dir+inFile2+(gz2==true?".hmp.txt.gz":".hmp.txt"), null);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a1, a1.getSequenceCount()+a2.getSequenceCount(), a1.getSiteCount());
+       IdGroup a2ID= a2.getIdGroup();
+       for (int taxon = 0; taxon < a2.getSequenceCount(); taxon++) {
+           mna.addTaxon(a2ID.getIdentifier(taxon));
+           for (int site = 0; site < a1.getSiteCount(); site++) {
+               mna.setBase(a1.getSequenceCount()+taxon, site, a2.getBase(taxon, site));
+           }
+       }
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, outFileName+".hmp.txt.gz", '\t', null);
+   }
+   
+   public static Alignment SubsetHapmapByHeterozygosity(String inHapmap, boolean gz, double hetCutoff,boolean desireHets, boolean toFile, boolean filterPolymorphic) {
+        Alignment a= ImportUtils.readFromHapmap(dir+inHapmap+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
         System.out.println("Subsetting by Heterozygosity "+(desireHets==true?"greater than "+hetCutoff:"less than or equal to "+hetCutoff));
         System.out.println("Original num of taxa: "+a.getSequenceCount());
         System.out.println("Original num of sites: "+a.getSiteCount());
-        String outHapMapFileName= dir+a+"subset_"+"_hetCutoff"+hetCutoff+".hmp.txt";
+        String outHapMapFileName= (desireHets==false)?dir+inHapmap+"subset_lessThanEqual"+hetCutoff+"Het.hmp.txt.gz":dir+inHapmap+"subset_greaterThan"+hetCutoff+"Het.hmp.txt.gz";
+        
         IdGroup IDs= a.getIdGroup();
         boolean[] badTaxa= new boolean[a.getSequenceCount()];
         double numSites= a.getSiteCount();
-        if (desireHets==true) {
+        if (desireHets==false) {
             for (int taxon= 0; taxon<a.getSequenceCount(); taxon++) {
             if ((((double) a.getHeterozygousCountForTaxon(taxon))/numSites) > hetCutoff) badTaxa[taxon]= true;
             }
@@ -595,17 +613,17 @@ public class KellyUtils {
 //       MaskSites(inHapmap,false,300);
        
        //subset for heterozygosity
-//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-//       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-//       SubsetHapmapByHeterozygosity(inHapmap,.5,true,true);
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       SubsetHapmapByHeterozygosity(inHapmap,true,.01,true,true,false);
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
 //       SitesWithSamePhysicalPositions(inFile,false);
        
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024";
-       HapmapToVCF(inFile, true, true);
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024";
+//       HapmapToVCF(inFile, true, true);
 
    }
 }

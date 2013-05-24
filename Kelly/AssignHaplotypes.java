@@ -223,6 +223,7 @@ public class AssignHaplotypes {
         }
         
         for (int taxon = 0; taxon < focus.getSequenceCount(); taxon++) {
+            System.out.println("working on taxon "+taxon+" ("+homo.getTaxaName(taxon)+")");
             int[] fullPos= full.getPhysicalPositions();
             int segLength= 0;
             int firstSite= 0;
@@ -235,7 +236,7 @@ public class AssignHaplotypes {
                 else {
                     if (segLength>segSize) {
                         int startPos= focus.getPositionInLocus((firstSite<25)?firstSite:firstSite+25);
-                        int endPos= focus.getPositionInLocus(lastSite>focus.getSiteCount()-25?lastSite:lastSite-25);
+                        int endPos= focus.getPositionInLocus(lastSite>(focus.getSiteCount()-25)?lastSite:lastSite-25);
                         int fullStartIndex= Arrays.binarySearch(fullPos, startPos);//get indices for the full file based on same physical position
                         int fullEndIndex= Arrays.binarySearch(fullPos, endPos);
                         for (int s = fullStartIndex; s < fullEndIndex; s++) {
@@ -261,8 +262,8 @@ public class AssignHaplotypes {
        
        //find homozygous segments
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String focusFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetminCov.4";
-       String fullFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       findHomozygousSegments(focusFile, true, fullFile, true, 200);
+       String focusFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het_siteMin.4";
+       String fullFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het";
+       findHomozygousSegments(focusFile, false, fullFile, false, 200);
     }
 }

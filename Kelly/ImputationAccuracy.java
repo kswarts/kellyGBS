@@ -2,11 +2,14 @@ package Kelly;
 
 import java.io.*;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
+import net.maizegenetics.pal.popgen.MinorWindowViterbiImputation;
 
 /*
  * To change this template, choose Tools | Templates
@@ -30,6 +33,18 @@ public class ImputationAccuracy {
     public static boolean[] outbred;
     public static boolean[] inbred;
     public static byte diploidN= NucleotideAlignmentConstants.getNucleotideDiploidByte("NN");
+    
+    public static void maskFile(String inFile, boolean gz, int sampleIntensity) {
+        Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
+        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+        for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {            
+            for (int site= taxon;site<a.getSiteCount();site+= sampleIntensity) {
+                mna.setBase(taxon, site, diploidN);
+            }
+        }
+        mna.clean();
+        ExportUtils.writeToHapmap(mna, true, dir+inFile+"_masked.hmp.txt.gz", '\t', null);
+    }
     
     public static double getTrue(boolean[] mask) {
         int count= 0;
@@ -427,12 +442,24 @@ public class ImputationAccuracy {
     }
     
     public static void main(String[] args) {
-        dir= "/Users/kelly/Documents/GBS/GroupImputation/";
-        String knownFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575";
-        String imputedFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575_imputed";
-//        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
-        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 
-                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, imputedFileName);
+        //run accuracy
+//        dir= "/Users/kelly/Documents/GBS/GroupImputation/";
+//        String knownFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575";
+//        String imputedFileName= "04_PivotMergedTaxaTBT.c10_s0_s24575_imputed";
+////        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
+//        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 
+//                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, imputedFileName);
         
+        //make a mask
+//        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//        String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//        maskFile(inFile,true,300);
+        
+        //Ed's minorWindowViterbiImputation
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String donorFile= dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMerge_s+.hmp.txt.gz";
+        String unImpTargetFile= dir+"SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked.hmp.txt.gz";
+        String impTargetFile= dir+"SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_imputedByNew.hmp.txt.gz";
+        MinorWindowViterbiImputation e64NNI=new MinorWindowViterbiImputation(donorFile, unImpTargetFile, impTargetFile, 20, 50, 100, 0.01, true, false);
     }
 }

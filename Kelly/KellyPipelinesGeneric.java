@@ -27,7 +27,8 @@ import net.maizegenetics.pipeline.TasselPipeline;
 public class KellyPipelinesGeneric {
     public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
-       runFindMergeHaplotypesPlugin();
+//       runFindMergeHaplotypesPlugin();
+       runMinorWindowViterbiImputationPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
 //        convertBinaryTBTToText();
@@ -69,21 +70,44 @@ public class KellyPipelinesGeneric {
 
    public static void runFindMergeHaplotypesPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_subsetHet.04-.12minCov.75HomozygousSegOnly";
+       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het_siteMin.4HomozygousSegOnly";
        String[] testArgs = new String[] {
             "-hmp",   dir+base+".hmp.txt.gz",
-            "-o",     dir+base+"_HaplotypeMerge.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
+            "-o",     dir+base+"_HaplotypeMerge_s+.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
             "-oE",    dir+base+"_HaplotypeMergeError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
             "-sC",    "8",//Start chromosome\n"
             "-eC",    "8",// End chromosome\n"
             "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
-            "-hapSize","5000",//    Preferred haplotype block size in sites\n"
+            "-hapSize","8000",//    Preferred haplotype block size in sites\n"
             "-minPres", "500", //    Minimum number of present sites within input sequence to do the search\n"
             "-maxHap",  "2000",//    Maximum number of haplotypes per segment\n"
             "-maxOutMiss",  "0.4",//  Maximum frequency of missing data in the output haplotype"
        };
        String[] args = testArgs;
        FindMergeHaplotypesPlugin plugin = new FindMergeHaplotypesPlugin();
+       plugin.setParameters(args);
+       plugin.performFunction(null);
+   }
+   
+   public static void runMinorWindowViterbiImputationPlugin() {
+       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked";
+       String[] testArgs = new String[] {
+            "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
+            "-o",     dir+base+"_imputedByNewPlusExtras.hmp.txt.gz", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+            "-sC",    "10",  //Start chromosome
+            "-eC",    "10",  //End chromosome\n"
+            "-minMnCnt",    "20",    //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)\n"
+            "-mxInbErr",    ".02",    //Maximum inbred error rate\n"
+            "-mxHybErr",    ".005",    //Maximum hybrid error rate\n"
+//            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
+//            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
+//            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
+            "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
+       };
+       String[] args = testArgs;
+       MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
        plugin.setParameters(args);
        plugin.performFunction(null);
    }
@@ -118,74 +142,6 @@ public class KellyPipelinesGeneric {
        File outTOPM= new File(outTOPMFileName);
        TagsOnPhysicalMap theTOPM= new TagsOnPhysicalMap(inTOPMFileName, true);
        theTOPM.writeTextFile(outTOPM);
-   }
-
-   public static void tagCountsToFastQ() {
-       String TagCountFileName = "H:/64GJAAAXX/newPipeline/mergedTagCounts/mergedPstIIBM_min50.cnt";
-       String FastQFileName    = "H:/64GJAAAXX/newPipeline/mergedTagCounts/mergedPstIIBM_min50.fastq";
-       TagCounts tc = new TagCounts();
-       tc.toFASTQ(TagCountFileName, FastQFileName);
-   }
-
-   public static void runQseqToTagCountPlugin() {
-//        String[] NAM49_50_ApeKIargs = new String[] {
-//            "-i", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/qseq",
-//            "-k", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/NAM49_50_ApeKI_key.txt",
-//            "-e", "ApeKI", // Enzyme used to create the GBS library
-//            "-s", "200000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-//            "-c", "1", // Minimum tag count (default is 1)
-//            "-o", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/tagCounts"
-//        };
-
-       String[] args = new String[] {
-           "-i", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/qseq",
-           "-k", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/70MU0AAXX_NAM_PstI_key.txt",
-           "-e", "PstI", // Enzyme used to create the GBS library
-           "-s", "200000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-           "-c", "1", // Minimum tag count (default is 1)
-           "-o", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/tagCounts"
-       };
-
-       QseqToTagCountPlugin plugin = new QseqToTagCountPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
-   }
-
-   public static void runFastqToTagCountPlugin() {
-//        String testWorkdir = "/Users/kelly/Documents/GBS";
-       String[] testArgs = new String[] {//get RI_landraces with minimum tag count of 2; run 20120308
-           "-i", dir+"/GBS/B73/fastq",
-           "-k", dir+"/GBS/B73/fastq/B73__key_120611.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-s", "20000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-           "-c", "1", // Minimum tag count (default is 1)
-           "-o", dir+"/GBS/B73/tagCounts",
-       };
-
-       String[] args = testArgs;
-       FastqToTagCountPlugin plugin = new FastqToTagCountPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
-   }
-
-   public static void runMergeMultipleTagCountPlugin() {
-//        String[] NAM49_50_ApeKIargs = new String[] {
-//            "-i", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/tagCounts", // Input directory containing .cnt files
-//            "-o", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/mergedTagCounts/NAM49_50_ApeKI_mergedTags_min10.fastq", //  Output file name
-//            "-c", "10" // Minimum count of reads to be output (default 1)
-//          , "-t" // Specifies that reads should be output in FASTQ text format.
-//        };
-
-       String[] args = new String[] {
-           "-i", dir+"/GBS/landraceCombo/tagCounts", // Input directory containing .cnt files
-           "-o", dir+"/GBS/landraceCombo/mergedTagCounts/B73_min10.cnt", //  Output file name
-           "-c", "10" // Minimum count of reads to be output (default 1)
-//         , "-t" // Specifies that reads should be output in FASTQ text format.
-       };
-
-       MergeMultipleTagCountPlugin plugin = new MergeMultipleTagCountPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
    }
 
    public static void runFastqToTBTPluginWithTaxaCount() {
