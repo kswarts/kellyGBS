@@ -27,7 +27,7 @@ import net.maizegenetics.pipeline.TasselPipeline;
 public class KellyPipelinesGeneric {
     public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
-//       runFindMergeHaplotypesPlugin();
+       runFindMergeHaplotypesPlugin();
        runMinorWindowViterbiImputationPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
@@ -70,7 +70,7 @@ public class KellyPipelinesGeneric {
 
    public static void runFindMergeHaplotypesPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het_siteMin.4HomozygousSegOnly";
+       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
        String[] testArgs = new String[] {
             "-hmp",   dir+base+".hmp.txt.gz",
             "-o",     dir+base+"_HaplotypeMerge_s+.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
@@ -94,8 +94,8 @@ public class KellyPipelinesGeneric {
        String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked";
        String[] testArgs = new String[] {
             "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
-            "-o",     dir+base+"_imputedByNewPlusExtras.hmp.txt.gz", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
+            "-o",     dir+base+"_defaultDonor.hmp.txt.gz", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
             "-sC",    "10",  //Start chromosome
             "-eC",    "10",  //End chromosome\n"
             "-minMnCnt",    "20",    //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)\n"
