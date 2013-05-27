@@ -556,7 +556,7 @@ public class ImputationAccuracy {
         //run accuracy
         dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
         String knownFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-        String imputedFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_imputedByNew";
+        String imputedFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_defaultDonor";
 //        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
         ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt.gz", null), 
                 ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null),300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");

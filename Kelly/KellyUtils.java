@@ -35,7 +35,8 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
-import net.maizegenetics.pal.ids.Identifier;
+import net.maizegenetics.util.ExceptionUtils;
+import net.maizegenetics.util.Utils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 
@@ -569,6 +570,58 @@ public class KellyUtils {
        ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
    }
    
+   //from Alberto
+      public static String saveDelimitedAlignment(Alignment theAlignment, String delimit, String saveFile) {
+
+        if ((saveFile == null) || (saveFile.length() == 0)) {
+            return null;
+        }
+        saveFile = Utils.addSuffixIfNeeded(saveFile, ".txt");
+        FileWriter fw = null;
+        BufferedWriter bw = null;
+        try {
+
+            fw = new FileWriter(new File(saveFile));
+            bw = new BufferedWriter(fw);
+
+            bw.write("I\tid");
+            int numSites = theAlignment.getSiteCount();
+            for (int j = 0; j < theAlignment.getSequenceCount(); j++) {
+                bw.write(delimit);
+                bw.write(theAlignment.getIdGroup().getIdentifier(j).getFullName());
+                bw.write(delimit);
+                bw.write(theAlignment.getIdGroup().getIdentifier(j).getFullName());              
+            }
+            bw.write("\n");
+            for (int i = 0; i < numSites; i++) {
+                bw.write("M\t");
+//                bw.write(String.valueOf(theAlignment.getPositionInLocus(i)));
+                    bw.write(theAlignment.getSNPID(i));
+                for (int r = 0, n = theAlignment.getSequenceCount(); r < n; r++) {
+                    bw.write(delimit);
+                    bw.write(theAlignment.getBaseAsStringArray(r, i)[0]);
+                    bw.write(delimit);
+                    bw.write(theAlignment.getBaseAsStringArray(r, i)[1]);
+                }
+                bw.write("\n");
+            }
+
+            return saveFile;
+
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Error writing Delimited Alignment: " + saveFile + ": " + ExceptionUtils.getExceptionCauses(e));
+        } finally {
+            try {
+                bw.close();
+                fw.close();
+            } catch (Exception e) {
+                // do nothing
+            }
+        }
+
+    }
+
+   
    public static void main (String args[]) {
              
 //       //args for FilterMergedTBT
@@ -614,8 +667,8 @@ public class KellyUtils {
        
        //subset for heterozygosity
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       SubsetHapmapByHeterozygosity(inHapmap,true,.01,true,true,false);
+//       String inHapmap= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       SubsetHapmapByHeterozygosity(inHapmap,true,.01,true,true,false);
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "04_PivotMergedTaxaTBT.c10_s0_s24575subset__minCov0.1";
@@ -624,6 +677,9 @@ public class KellyUtils {
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024";
 //       HapmapToVCF(inFile, true, true);
+       
+       Alignment a= ImportUtils.readFromHapmap(dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.hmp.txt", null);
+       saveDelimitedAlignment(a,"\t",dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.bgl");
 
    }
 }
