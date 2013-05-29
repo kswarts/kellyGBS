@@ -27,7 +27,7 @@ import net.maizegenetics.pipeline.TasselPipeline;
 public class KellyPipelinesGeneric {
     public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
-       runFindMergeHaplotypesPlugin();
+//       runFindMergeHaplotypesPlugin();
        runMinorWindowViterbiImputationPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
@@ -70,17 +70,18 @@ public class KellyPipelinesGeneric {
 
    public static void runFindMergeHaplotypesPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het";
        String[] testArgs = new String[] {
             "-hmp",   dir+base+".hmp.txt.gz",
-            "-o",     dir+base+"_HaplotypeMerge_s+.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
-            "-oE",    dir+base+"_HaplotypeMergeError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
-            "-sC",    "8",//Start chromosome\n"
-            "-eC",    "8",// End chromosome\n"
+            "-o",     dir+base+"_HaplotypeMerge4k_s+.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
+            "-oE",    dir+base+"_HaplotypeMerge4kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
+            "-sC",    "10",//Start chromosome\n"
+            "-eC",    "10",// End chromosome\n"
             "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
-            "-hapSize","8000",//    Preferred haplotype block size in sites\n"
+            "-hapSize","4000",//    Preferred haplotype block size in sites\n"
             "-minPres", "500", //    Minimum number of present sites within input sequence to do the search\n"
-            "-maxHap",  "2000",//    Maximum number of haplotypes per segment\n"
+            "-maxHap",  "3000",//    Maximum number of haplotypes per segment\n"
             "-maxOutMiss",  "0.4",//  Maximum frequency of missing data in the output haplotype"
        };
        String[] args = testArgs;
@@ -94,11 +95,13 @@ public class KellyPipelinesGeneric {
        String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked";
        String[] testArgs = new String[] {
             "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
-            "-o",     dir+base+"_defaultDonor.hmp.txt.gz", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
+            "-o",     dir+base+"_HomoSeg.1HetWithExtras8k.minMtCnt15.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+//            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
+//            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
             "-sC",    "10",  //Start chromosome
             "-eC",    "10",  //End chromosome\n"
-            "-minMnCnt",    "20",    //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)\n"
+            "-minMnCnt",    "15",  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
             "-mxInbErr",    ".02",    //Maximum inbred error rate\n"
             "-mxHybErr",    ".005",    //Maximum hybrid error rate\n"
 //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"

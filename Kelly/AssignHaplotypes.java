@@ -17,6 +17,7 @@ import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
+import net.maizegenetics.prefs.TasselPrefs;
 import org.apache.commons.lang.ArrayUtils;
 
 /**
@@ -211,7 +212,7 @@ public class AssignHaplotypes {
     public static void findHomozygousSegments(String focusFile, boolean focusGz, String fullFile, boolean fullGz, int segSize) {
        String focusFileName= (focusGz==true)?dir+focusFile+".hmp.txt.gz":dir+focusFile+".hmp.txt";
        String fullFileName= (fullGz==true)?dir+fullFile+".hmp.txt.gz":dir+fullFile+".hmp.txt";
-       String outFileName= dir+focusFile+"HomozygousSegOnly.hmp.txt.gz";
+       String outFileName= dir+focusFile+"HomoSegOnlyBlockSize"+segSize+".hmp.txt.gz";
        Alignment focus= ImportUtils.readFromHapmap(focusFileName, null);
        Alignment full= ImportUtils.readFromHapmap(fullFileName, null);
        MutableNucleotideAlignment homo= MutableNucleotideAlignment.getInstance(full);
@@ -254,6 +255,7 @@ public class AssignHaplotypes {
     }
     
     public static void main(String[] args) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
         //for matchSitesInAlignment
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
@@ -264,6 +266,6 @@ public class AssignHaplotypes {
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        String focusFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het_siteMin.4";
        String fullFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1subset_greaterThan0.01Het";
-       findHomozygousSegments(focusFile, false, fullFile, false, 200);
+       findHomozygousSegments(focusFile, false, fullFile, false, 800);
     }
 }
