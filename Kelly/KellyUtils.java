@@ -570,7 +570,27 @@ public class KellyUtils {
        ExportUtils.writeToVCF(a, dir+inFile+".vcf", '\t');
    }
    
-   //from Alberto
+   public static void RandomlySampleAlignment(String inFile, boolean gz, int numTaxa, boolean filterPolymorphic) {
+       String outHapMapFileName= dir+inFile+"RndSample"+numTaxa+".hmp.txt.gz";
+       Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"),null);
+       IdGroup IDs= a.getIdGroup();
+        boolean[] badTaxa= new boolean[a.getSequenceCount()];
+        int count= 0;
+        while (count<=a.getSequenceCount()-numTaxa) {
+            int num= (int)Math.round(Math.random()*a.getSequenceCount());
+            if (badTaxa[num]==false) count++;
+            badTaxa[num]= true;
+        }
+        IdGroup removeIDs= IdGroupUtils.idGroupSubset(IDs, badTaxa);
+        Alignment align= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
+        if (filterPolymorphic==true) {
+            //filter for sites that are polymorphic 
+            align= FilterForPolymorphicSites(align);
+        }
+        ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
+   }
+   
+   //from Alberto to make a beagle 3 file
       public static String saveDelimitedAlignment(Alignment theAlignment, String delimit, String saveFile) {
 
         if ((saveFile == null) || (saveFile.length() == 0)) {
@@ -678,8 +698,10 @@ public class KellyUtils {
 //       String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_minHet0.024";
 //       HapmapToVCF(inFile, true, true);
        
-       Alignment a= ImportUtils.readFromHapmap(dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.hmp.txt", null);
-       saveDelimitedAlignment(a,"\t",dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.bgl");
+//       Alignment a= ImportUtils.readFromHapmap(dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.hmp.txt", null);
+//       saveDelimitedAlignment(a,"\t",dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.bgl");
+       
+       RandomlySampleAlignment("SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,1000,false);
 
    }
 }

@@ -93,26 +93,37 @@ public class KellyPipelinesGeneric {
    public static void runMinorWindowViterbiImputationPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked";
-       String[] testArgs = new String[] {
-            "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
-            "-o",     dir+base+"_HomoSeg.1HetWithExtras8k.minMtCnt15.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-//            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
-//            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-            "-sC",    "10",  //Start chromosome
-            "-eC",    "10",  //End chromosome\n"
-            "-minMnCnt",    "15",  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
-            "-mxInbErr",    ".02",    //Maximum inbred error rate\n"
-            "-mxHybErr",    ".005",    //Maximum hybrid error rate\n"
-//            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
-//            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
-//            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
-            "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
-       };
-       String[] args = testArgs;
-       MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
+       String[] minMnCnt= {"15","20","25","30"};
+       String[] mxInbErr= {".01",".02",".03",".04",".05"};
+       String[] mxHybErr= {".003",".004",".005",".008",".01"};
+       
+       for (int i = 0; i < minMnCnt.length; i++) {
+           for (int j = 0; j < mxInbErr.length; j++) {
+               for (int k = 0; k < mxHybErr.length; k++) {
+               
+            String[] testArgs = new String[] {
+                 "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
+                 "-o",     dir+base+"_HomoSeg.1HetWithExtras8k.minMtCnt15.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+     //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
+     //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-sC",    "10",  //Start chromosome
+                 "-eC",    "10",  //End chromosome\n"
+                 "-minMnCnt",    "15",  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
+                 "-mxInbErr",    ".02",    //Maximum inbred error rate\n"
+                 "-mxHybErr",    ".005",    //Maximum hybrid error rate\n"
+     //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
+     //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
+     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
+                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
+            };
+            String[] args = testArgs;
+            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
+            plugin.setParameters(args);
+            plugin.performFunction(null);
+               }
+           }
+       }
    }
    
    public static void convertTextTagCountsToBinary() {
