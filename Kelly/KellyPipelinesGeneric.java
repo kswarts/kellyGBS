@@ -16,8 +16,11 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaUtils;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pipeline.TasselPipeline;
+import net.maizegenetics.prefs.TasselPrefs;
 
 
 /**
@@ -27,6 +30,7 @@ import net.maizegenetics.pipeline.TasselPipeline;
 public class KellyPipelinesGeneric {
     public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
+       TasselPrefs.putAlignmentRetainRareAlleles(false);
 //       runFindMergeHaplotypesPlugin();
        runMinorWindowViterbiImputationPlugin();
 //        convertTextTagCountsToBinary();
@@ -92,7 +96,9 @@ public class KellyPipelinesGeneric {
    
    public static void runMinorWindowViterbiImputationPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked";
+       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
+       String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz";
+       
        String[] minMnCnt= {"15","20","25","30"};
        String[] mxInbErr= {".01",".02",".03",".04",".05"};
        String[] mxHybErr= {".003",".004",".005",".008",".01"};
@@ -100,27 +106,31 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-               
-            String[] testArgs = new String[] {
-                 "-hmp",   dir+base+".hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-                 "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz", //Donor haplotype files 'c+s+' to denote sections\n"
-                 "-o",     dir+base+"_HomoSeg.1HetWithExtras8k.minMtCnt15.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-     //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
-     //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-                 "-sC",    "10",  //Start chromosome
-                 "-eC",    "10",  //End chromosome\n"
-                 "-minMnCnt",    "15",  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
-                 "-mxInbErr",    ".02",    //Maximum inbred error rate\n"
-                 "-mxHybErr",    ".005",    //Maximum hybrid error rate\n"
-     //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
-     //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
-     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
-                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
-            };
-            String[] args = testArgs;
-            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
-            plugin.setParameters(args);
-            plugin.performFunction(null);
+            String out= "_masked_HomoSegBlock200HetWithExtras8k.minMtCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
+//            String[] testArgs = new String[] {
+//                 "-hmp",   dir+base+"_masked.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+//                 "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
+//                 "-o",     dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+//     //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
+//     //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+//                 "-sC",    "10",  //Start chromosome
+//                 "-eC",    "10",  //End chromosome\n"
+//                 "-minMnCnt",    minMnCnt[i],  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
+//                 "-mxInbErr",    mxInbErr[j],    //Maximum inbred error rate\n"
+//                 "-mxHybErr",    mxHybErr[k],    //Maximum hybrid error rate\n"
+//     //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
+//     //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
+//     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
+//                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
+//            };
+//            String[] args = testArgs;
+//            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
+//            plugin.setParameters(args);
+//            plugin.performFunction(null);
+//            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5");
+//            ExportUtils.writeToHapmap(outHDF5, true, dir+"Results/20130531_1/"+base+out+".hmp.txt.gz", '\t', null);
+            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
+                ImportUtils.readFromHapmap(dir+"Results/20130531_1/"+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
                }
            }
        }

@@ -1,15 +1,13 @@
 package Kelly;
 
 import java.io.*;
+import java.util.Arrays;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
-import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
-import net.maizegenetics.pal.ids.IdGroup;
-import net.maizegenetics.pal.ids.IdGroupUtils;
-import net.maizegenetics.pal.popgen.MinorWindowViterbiImputation;
+import net.maizegenetics.prefs.TasselPrefs;
 
 /*
  * To change this template, choose Tools | Templates
@@ -29,10 +27,15 @@ public class ImputationAccuracy {
     public static boolean[] highCovTaxa;
     public static boolean[] highCovHets;
     public static boolean[] highCovInbreds;
-    public static boolean[] HWSites;
     public static boolean[] outbred;
     public static boolean[] inbred;
     public static byte diploidN= NucleotideAlignmentConstants.getNucleotideDiploidByte("NN");
+    private static byte knownBase;
+    private static byte impBase;
+    private static byte[] knownArray;
+    private static byte knownMaj;
+    private static byte knownMin;
+    private static byte[] impArray;
     
     public static void maskFile(String inFile, boolean gz, int sampleIntensity) {
         Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
@@ -96,6 +99,51 @@ public class ImputationAccuracy {
         return count;
     }
     
+    public static void makeMasksTest(Alignment known, Alignment unimputed, double cov, double het) {
+        int covCutoff= (int)(cov*(double) unimputed.getSiteCount()); //cutoff for number of sites present to be high cov
+        int hetCutoff= (int)(het*(double) unimputed.getSiteCount());
+        int inbredCutoff= (int)(.006*(double) unimputed.getSiteCount());
+        knownHetMask= new boolean[unimputed.getSequenceCount()][unimputed.getSiteCount()];
+        calledHomoMajMask= new boolean[unimputed.getSequenceCount()][unimputed.getSiteCount()];
+        calledHomoMinMask= new boolean[unimputed.getSequenceCount()][unimputed.getSiteCount()];
+        calledMissingMask= new boolean[unimputed.getSequenceCount()][unimputed.getSiteCount()];
+        highCovTaxa= new boolean[unimputed.getSequenceCount()];
+        highCovInbreds= new boolean[unimputed.getSequenceCount()];
+        highCovHets= new boolean[unimputed.getSequenceCount()];
+        outbred= new boolean[unimputed.getSequenceCount()];
+        inbred= new boolean[unimputed.getSequenceCount()];
+        for (int taxon = 0; taxon < unimputed.getSequenceCount(); taxon++) {
+            if (unimputed.getTotalNotMissingForTaxon(taxon)>covCutoff) highCovTaxa[taxon]= true;
+            if (unimputed.getHeterozygousCountForTaxon(taxon)>hetCutoff) outbred[taxon]= true;
+            if (unimputed.getHeterozygousCountForTaxon(taxon)<inbredCutoff) inbred[taxon]= true;
+            if (highCovTaxa[taxon]==true&&outbred[taxon]==true) highCovHets[taxon]= true;
+            if (highCovTaxa[taxon]==true&&inbred[taxon]==true) highCovInbreds[taxon]= true;
+        }
+        int[] matchTaxon= new int[unimputed.getSequenceCount()];//holds the index of corresponding taxon in known
+        String[] knownNames= new String[known.getSequenceCount()];
+        for (int taxon = 0; taxon < knownNames.length; taxon++) {
+            knownNames[taxon]= known.getIdGroup().getIdentifier(taxon).getNameLevel(0);
+        }
+        
+        for (int taxon = 0; taxon < matchTaxon.length; taxon++) {
+            String unkName= unimputed.getIdGroup().getIdentifier(taxon).getNameLevel(0);
+            matchTaxon[taxon]= Arrays.binarySearch(knownNames, unkName);
+        }
+        
+        for (int site = 0; site < unimputed.getSiteCount(); site++) {
+            if (known.getTotalGametesNotMissing(site)<known.getSequenceCount()) continue;
+            byte diploidMaj= PhaseHets.getDiploidBase(unimputed.getMajorAllele(site));
+            byte diploidMin= PhaseHets.getDiploidBase(unimputed.getMinorAllele(site));
+            
+            for (int taxon = 0; taxon < unimputed.getSequenceCount(); taxon++) {
+                if (known.isHeterozygous(matchTaxon[taxon], site)==true) knownHetMask[taxon][site]= true;
+                else if (known.getBase(matchTaxon[taxon], site)==diploidMaj) calledHomoMajMask[taxon][site]= true;
+                else if (known.getBase(matchTaxon[taxon], site)==diploidMin) calledHomoMinMask[taxon][site]= true;
+                else calledMissingMask[matchTaxon[taxon]][site]= true;
+            }
+        }
+    }
+    
     public static void makeMasks(Alignment known, int sampleIntensity, double cov, double het, double hwWiggle) { //het, homo, missing, highCov, HW sites (wiggle refers to the leeway given as a proportion of the minor allele frequency)
         int covCutoff= (int)(cov*(double) known.getSiteCount()); //cutoff for number of sites present to be high cov
         int hetCutoff= (int)(het*(double) known.getSiteCount());
@@ -109,7 +157,6 @@ public class ImputationAccuracy {
         highCovHets= new boolean[known.getSequenceCount()];
         outbred= new boolean[known.getSequenceCount()];
         inbred= new boolean[known.getSequenceCount()];
-        HWSites= new boolean[known.getSiteCount()]; 
         
         for (int taxon= 0;taxon<known.getSequenceCount();taxon++) {
             if (known.getTotalNotMissingForTaxon(taxon)>covCutoff) highCovTaxa[taxon]= true;
@@ -128,16 +175,16 @@ public class ImputationAccuracy {
                     calledHomoMinMask[taxon][site]= true;                
             }
         }
-        //get sites for high coverage hets in HW proportions
-        IdGroup highCovHetTaxa= IdGroupUtils.idGroupSubset(known.getIdGroup(), highCovHets);
-        Alignment highCovAlign= FilterAlignment.getInstance(known, highCovHetTaxa);
-        for (int site= 0;site<known.getSiteCount();site++) {
-            double p= highCovAlign.getMajorAlleleFrequency(site);
-            double q= highCovAlign.getMinorAlleleFrequency(site);
-            double obsHetFreq= highCovAlign.getHeterozygousCount(site)/highCovAlign.getSiteCount();
-            double expHetFreq= 2*p*q;
-            if (obsHetFreq>(expHetFreq-(q*hwWiggle))&&obsHetFreq<(expHetFreq+(q*hwWiggle))) HWSites[site]= true;
-        }
+//        //get sites for high coverage hets in HW proportions
+//        IdGroup highCovHetTaxa= IdGroupUtils.idGroupSubset(known.getIdGroup(), highCovHets);
+//        Alignment highCovAlign= FilterAlignment.getInstance(known, highCovHetTaxa);
+//        for (int site= 0;site<known.getSiteCount();site++) {
+//            double p= highCovAlign.getMajorAlleleFrequency(site);
+//            double q= highCovAlign.getMinorAlleleFrequency(site);
+//            double obsHetFreq= highCovAlign.getHeterozygousCount(site)/highCovAlign.getSiteCount();
+//            double expHetFreq= 2*p*q;
+////            if (obsHetFreq>(expHetFreq-(q*hwWiggle))&&obsHetFreq<(expHetFreq+(q*hwWiggle))) HWSites[site]= true;
+//        }
         //system.out to debug
         System.out.println("Number of siteTaxa considered:\n"+"knownHets: "+
                 ImputationAccuracy.getTrue(knownHetMask)+" (highHet/highHomo: "+
@@ -154,11 +201,74 @@ public class ImputationAccuracy {
                 "highCovInbred"+ImputationAccuracy.getTrue(highCovInbreds)+"\n"+
                 "highCovHets"+ImputationAccuracy.getTrue(highCovHets)+"\n"+
                 "inbred"+ImputationAccuracy.getTrue(inbred)+"\n"+
-                "outbred"+ImputationAccuracy.getTrue(outbred)+"\n"+
-                "HWSites"+ImputationAccuracy.getTrue(HWSites));
+                "outbred"+ImputationAccuracy.getTrue(outbred));
+    }
+    
+    public static void calculateAccuracy(Alignment imputed, int taxon, int site, double[]type, double[]typeSites) {
+        //calculates accuracy for all
+                typeSites[0]++;
+                if (calledHomoMajMask[taxon][site]==true) {
+                    typeSites[1]++;
+                    typeSites[2]++;
+                    if (impBase==diploidN) type[5]++;
+                    else if (knownBase==impBase) type[0]++;
+                    else if (imputed.isHeterozygous(taxon, site)==true) {
+                        if (impArray[0]==knownMaj||impArray[1]==knownMaj) type[2]++; 
+                        else {
+                            type[4]++;
+                            type[14]++;
+                        }
+                    }
+                    else {
+                        type[3]++;
+                        type[14]++;
+                    }
+                }
+                else if (calledHomoMinMask[taxon][site]==true) {
+                    typeSites[1]++;
+                    typeSites[3]++;
+                    if (impBase==diploidN) type[5]++;
+                    else if (knownBase==impBase) type[1]++;
+                    else if (imputed.isHeterozygous(taxon, site)==true) {
+                        if (impArray[0]==knownMin||impArray[1]==knownMin) type[2]++;
+                        else {
+                            type[4]++;
+                            type[14]++;
+                        }
+                    }
+                    else {
+                        type[3]++;
+                        type[14]++;
+                    }
+                    
+                }
+                else if (knownHetMask[taxon][site]==true) {
+                    typeSites[4]++;
+                    if (impBase==diploidN) type[10]++;
+                    else if (impBase==knownBase) type[6]++;
+                    else if (imputed.isHeterozygous(taxon, site)==true) {
+                        type[9]++;
+                        type[14]++;
+                    }
+                    else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
+                        type[7]+= .5;
+                        type[14]++;
+                    }
+                    else {
+                        type[8]++;
+                        type[14]++;
+                    }
+                }
+                else if (calledMissingMask[taxon][site]==true) {
+                    typeSites[5]++;
+                    if (impBase==diploidN) type[13]++;
+                    else if (imputed.isHeterozygous(taxon, site)) type[12]++;
+                    else type[11]++;
+                }
     }
         
-    public static void runTest(Alignment known, Alignment imputed, int sampleIntensity, double cov, double het, double hwWiggle, String outFileName) {
+    public static void runTest(Alignment known, Alignment imputed, Alignment unimputed, boolean test, int sampleIntensity, double cov, double het, double hwWiggle, String outFileName) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
         //for each double array, index 0:homoMajCorrect, 1:homoMinCorrect, 2:homoHetOneCorrect, 3:homoIncorrectHomo, 4:homoIncorrectHet
         //5:homoMissing, 6:hetCorrect, 7:hetOneCorrect, 8:hetIncorrectHomo, 9:hetIncorrectHet, 10:hetMissing, 11:missingImputedHomo, 
         //12:missingImputedHet, 13:missingMissing, 14:OverallError
@@ -173,319 +283,27 @@ public class ImputationAccuracy {
         double[] highCovOutbred= new double[15];
         double[] highCovOutbredSites= new double[6];
         
-        ImputationAccuracy.makeMasks(known, sampleIntensity, cov, het, hwWiggle);
+        if (test==true) ImputationAccuracy.makeMasksTest(known, unimputed, cov, het);
+        else ImputationAccuracy.makeMasks(known, sampleIntensity, cov, het, hwWiggle);
         for (int taxon= 0;taxon<known.getSequenceCount();taxon++) {            
             for (int site= taxon;site<known.getSiteCount();site+= sampleIntensity) {
-                byte knownBase= known.getBase(taxon, site);
-                byte impBase= imputed.getBase(taxon, site);
-                byte[] knownArray= known.getBaseArray(taxon, site);
-                byte knownMaj= known.getMajorAllele(site);
-                byte knownMin= known.getMinorAllele(site);
-                byte[] impArray= imputed.getBaseArray(taxon, site);
-                //calculates accuracy for all
-                allSites[0]++;
-                if (calledHomoMajMask[taxon][site]==true) {
-                    allSites[1]++;
-                    allSites[2]++;
-                    if (impBase==diploidN) all[5]++;
-                    else if (knownBase==impBase) all[0]++;
-                    else if (imputed.isHeterozygous(taxon, site)==true) {
-                        if (impArray[0]==knownMaj||impArray[1]==knownMaj) all[2]++; 
-                        else {
-                            all[4]++;
-                            all[14]++;
-                        }
-                    }
-                    else {
-                        all[3]++;
-                        all[14]++;
-                    }
-                }
-                else if (calledHomoMinMask[taxon][site]==true) {
-                    allSites[1]++;
-                    allSites[3]++;
-                    if (impBase==diploidN) all[5]++;
-                    else if (knownBase==impBase) all[1]++;
-                    else if (imputed.isHeterozygous(taxon, site)==true) {
-                        if (impArray[0]==knownMin||impArray[1]==knownMin) all[2]++;
-                        else {
-                            all[4]++;
-                            all[14]++;
-                        }
-                    }
-                    else {
-                        all[3]++;
-                        all[14]++;
-                    }
-                    
-                }
-                else if (knownHetMask[taxon][site]==true) {
-                    allSites[4]++;
-                    if (impBase==diploidN) all[10]++;
-                    else if (impBase==knownBase) all[6]++;
-                    else if (imputed.isHeterozygous(taxon, site)==true) {
-                        all[9]++;
-                        all[14]++;
-                    }
-                    else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                        all[7]+= .5;
-                        all[14]++;
-                    }
-                    else {
-                        all[8]++;
-                        all[14]++;
-                    }
-                }
-                else if (calledMissingMask[taxon][site]==true) {
-                    allSites[5]++;
-                    if (impBase==diploidN) all[13]++;
-                    else if (imputed.isHeterozygous(taxon, site)) all[12]++;
-                    else all[11]++;
-                }
-                //calculates accuracy for only those coded as inbred (not 1-het)
-                if (inbred[taxon]==true) {
-                    allInbredSites[0]++;
-                    if (calledHomoMajMask[taxon][site]==true) {
-                        allInbredSites[1]++;
-                        allInbredSites[2]++;
-                        if (impBase==diploidN) allInbred[5]++;
-                        else if (knownBase==impBase) allInbred[0]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            if (impArray[0]==knownMaj||impArray[1]==knownMaj) allInbred[2]++;
-                            else {
-                                allInbred[4]++;
-                                allInbred[14]++;
-                            }
-                        }
-                        else {
-                            allInbred[3]++;
-                            allInbred[14]++;
-                        }
-                    }
-                    else if (calledHomoMinMask[taxon][site]==true) {
-                        allInbredSites[1]++;
-                        allInbredSites[3]++;
-                        if (impBase==diploidN) allInbred[5]++;
-                        else if (knownBase==impBase) allInbred[1]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            if (impArray[0]==knownMin||impArray[1]==knownMin) allInbred[2]++;
-                            else {
-                                allInbred[4]++;
-                                allInbred[14]++;
-                            }
-                        }
-                        else {
-                            allInbred[3]++;
-                            allInbred[14]++;
-                        }
-
-                    }
-                    else if (knownHetMask[taxon][site]==true) {
-                        allInbredSites[4]++;
-                        if (impBase==diploidN) allInbred[10]++;
-                        else if (impBase==knownBase) allInbred[6]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            allInbred[9]++;
-                            allInbred[14]++;
-                        }
-                        else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                            allInbred[7]+= .5;
-                            allInbred[14]++;
-                        }
-                        else {
-                            allInbred[8]++;
-                            allInbred[14]++;
-                        }
-                    }
-                    else if (calledMissingMask[taxon][site]==true) {
-                        allInbredSites[5]++;
-                        if (impBase==diploidN) allInbred[13]++;
-                        else if (imputed.isHeterozygous(taxon, site)) allInbred[12]++;
-                        else allInbred[11]++;
-                    }
-                    //accuracy for inbred sites with high coverage
-                    if (highCovTaxa[taxon]==true) {
-                        highCovInbredSites[0]++;
-                        if (calledHomoMajMask[taxon][site]==true) {
-                            highCovInbredSites[1]++;
-                            highCovInbredSites[2]++;
-                            if (impBase==diploidN) highCovInbred[5]++;
-                            else if (knownBase==impBase) highCovInbred[0]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                if (impArray[0]==knownMaj||impArray[1]==knownMaj) highCovInbred[2]++;
-                                else {
-                                    highCovInbred[4]++;
-                                    highCovInbred[14]++;
-                                }
-                            }
-                            else {
-                                highCovInbred[3]++;
-                                highCovInbred[14]++;
-                            }
-                        }
-                        else if (calledHomoMinMask[taxon][site]==true) {
-                            highCovInbredSites[1]++;
-                            highCovInbredSites[3]++;
-                            if (impBase==diploidN) highCovInbred[5]++;
-                            else if (knownBase==impBase) highCovInbred[1]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                if (impArray[0]==knownMin||impArray[1]==knownMin) highCovInbred[2]++; 
-                                else {
-                                    highCovInbred[4]++;
-                                    highCovInbred[14]++;
-                                }
-                            }
-                            else {
-                                highCovInbred[3]++;
-                                highCovInbred[14]++;
-                            }                    
-                        }
-                        else if (knownHetMask[taxon][site]==true) {
-                            highCovInbredSites[4]++;
-                            if (impBase==diploidN) highCovInbred[10]++;
-                            else if (impBase==knownBase) highCovInbred[6]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                highCovInbred[9]++;
-                                highCovInbred[14]++;
-                            }
-                            else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                                highCovInbred[7]++;
-                                highCovInbred[14]+= .5;
-                            }
-                            else {
-                                highCovInbred[8]++;
-                                highCovInbred[14]++;
-                            }
-                        }
-                        else if (calledMissingMask[taxon][site]==true) {
-                            highCovInbredSites[5]++;
-                            if (impBase==diploidN) highCovInbred[13]++;
-                            else if (imputed.isHeterozygous(taxon, site)) highCovInbred[12]++;
-                            else highCovInbred[11]++;
-                        }
+                knownBase= known.getBase(taxon, site);
+                impBase= imputed.getBase(taxon, site);
+                knownArray= known.getBaseArray(taxon, site);
+                knownMaj= known.getMajorAllele(site);
+                knownMin= known.getMinorAllele(site);
+                impArray= imputed.getBaseArray(taxon, site);
+                calculateAccuracy(imputed,taxon,site,all,allSites);//calculates accuracy for all
+                if (inbred[taxon]==true) {//calculates accuracy for only those coded as inbred (not 1-het)
+                    calculateAccuracy(imputed,taxon,site,allInbred,allInbredSites);
+                    if (highCovTaxa[taxon]==true) {//accuracy for inbred sites with high coverage
+                        calculateAccuracy(imputed,taxon,site,highCovInbred,highCovInbredSites);
                     }                    
                 }
-                //calculates accuracy for landraces only (heterozygosity above specified cutoff)
-                if (outbred[taxon]==true) {
-                    allOutbredSites[0]++;
-                    if (calledHomoMajMask[taxon][site]==true) {
-                        allOutbredSites[1]++;
-                        allOutbredSites[2]++;
-                        if (impBase==diploidN) allOutbred[5]++;
-                        else if (knownBase==impBase) allOutbred[0]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            if (impArray[0]==knownMaj||impArray[1]==knownMaj) allOutbred[2]++; 
-                            else {
-                                allOutbred[4]++;
-                                allOutbred[14]++;
-                            }
-                        }
-                        else {
-                            allOutbred[3]++;
-                            allOutbred[14]++;
-                        }
-                    }
-                    else if (calledHomoMinMask[taxon][site]==true) {
-                        allOutbredSites[1]++;
-                        allOutbredSites[3]++;
-                        if (impBase==diploidN) allOutbred[5]++;
-                        else if (knownBase==impBase) allOutbred[1]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            if (impArray[0]==knownMin||impArray[1]==knownMin) allOutbred[2]++; 
-                            else {
-                                allOutbred[4]++;
-                                allOutbred[14]++;
-                            }
-                        }
-                        else {
-                            allOutbred[3]++;
-                            allOutbred[14]++;
-                        }
-
-                    }
-                    else if (knownHetMask[taxon][site]==true) {
-                        allOutbredSites[4]++;
-                        if (impBase==diploidN) allOutbred[10]++;
-                        else if (impBase==knownBase) allOutbred[6]++;
-                        else if (imputed.isHeterozygous(taxon, site)==true) {
-                            allOutbred[9]++;
-                            allOutbred[14]++;
-                        }
-                        else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                            allOutbred[7]++;
-                            allOutbred[14]+= .5;
-                        }
-                        else {
-                            allOutbred[8]++;
-                            allOutbred[14]++;
-                        }
-                    }
-                    else if (calledMissingMask[taxon][site]==true) {
-                        allOutbredSites[5]++;
-                        if (impBase==diploidN) allOutbred[13]++;
-                        else if (imputed.isHeterozygous(taxon, site)) allOutbred[12]++;
-                        else allOutbred[11]++;
-                    }
-                    //accuracy for landraces with high coverage
-                    if (highCovTaxa[taxon]==true) {
-                        highCovOutbredSites[0]++;
-                        if (calledHomoMajMask[taxon][site]==true) {
-                            highCovOutbredSites[1]++;
-                            highCovOutbredSites[2]++;
-                            if (impBase==diploidN) highCovOutbred[5]++;
-                            else if (knownBase==impBase) highCovOutbred[0]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                if (impArray[0]==knownMaj||impArray[1]==knownMaj) highCovOutbred[2]++; 
-                                else {
-                                    highCovOutbred[4]++;
-                                    highCovOutbred[14]++;
-                                }
-                            }
-                            else {
-                                highCovOutbred[3]++;
-                                highCovOutbred[14]++;
-                            }
-                        }
-                        else if (calledHomoMinMask[taxon][site]==true) {
-                            highCovOutbredSites[1]++;
-                            highCovOutbredSites[3]++;
-                            if (impBase==diploidN) highCovOutbred[5]++;
-                            else if (knownBase==impBase) highCovOutbred[1]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                if (impArray[0]==knownMin||impArray[1]==knownMin) highCovOutbred[2]++; 
-                                else {
-                                    highCovOutbred[4]++;
-                                    highCovOutbred[14]++;
-                                }
-                            }
-                            else {
-                                highCovOutbred[3]++;
-                                highCovOutbred[14]++;
-                            }                    
-                        }
-                        else if (knownHetMask[taxon][site]==true) {
-                            highCovOutbredSites[4]++;
-                            if (impBase==diploidN) highCovOutbred[10]++;
-                            else if (impBase==knownBase) highCovOutbred[6]++;
-                            else if (imputed.isHeterozygous(taxon, site)==true) {
-                                highCovOutbred[9]++;
-                                highCovOutbred[14]++;
-                            }
-                            else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                                highCovOutbred[7]++;
-                                highCovOutbred[14]+= .5;
-                            }
-                            else {
-                                highCovOutbred[8]++;
-                                highCovOutbred[14]++;
-                            }
-                        }
-                        else if (calledMissingMask[taxon][site]==true) {
-                            highCovOutbredSites[5]++;
-                            if (impBase==diploidN) highCovOutbred[13]++;
-                            else if (imputed.isHeterozygous(taxon, site)) highCovOutbred[12]++;
-                            else highCovOutbred[11]++;
-                        }
+                if (outbred[taxon]==true) {//calculates accuracy for landraces only (heterozygosity above specified cutoff)
+                    calculateAccuracy(imputed,taxon,site,allOutbred,allOutbredSites);
+                    if (highCovTaxa[taxon]==true) {//accuracy for landraces with high coverage
+                        calculateAccuracy(imputed,taxon,site,highCovOutbred,highCovOutbredSites);
                     }
                 }                
             }
@@ -548,10 +366,10 @@ public class ImputationAccuracy {
     
     public static void main(String[] args) {
         
-//        //make a mask
-//        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-//        String inFile= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-//        maskFile(inFile,true,300);
+        //make a mask
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
+        maskFile(inFile,true,300);
         
         //run accuracy
         dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
@@ -559,7 +377,7 @@ public class ImputationAccuracy {
         String imputedFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_defaultDonor";
 //        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
         ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt.gz", null), 
-                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null),300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");
+                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null), null, false, 300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");
 //                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, imputedFileName);
         
         

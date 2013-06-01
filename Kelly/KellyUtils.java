@@ -35,6 +35,7 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
+import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.commons.lang.ArrayUtils;
@@ -576,8 +577,8 @@ public class KellyUtils {
        IdGroup IDs= a.getIdGroup();
         boolean[] badTaxa= new boolean[a.getSequenceCount()];
         int count= 0;
-        while (count<=a.getSequenceCount()-numTaxa) {
-            int num= (int)Math.round(Math.random()*a.getSequenceCount());
+        while (count<=a.getSequenceCount()-numTaxa-1) {
+            int num= (int)Math.floor(Math.random()*a.getSequenceCount());
             if (badTaxa[num]==false) count++;
             badTaxa[num]= true;
         }
@@ -588,6 +589,28 @@ public class KellyUtils {
             align= FilterForPolymorphicSites(align);
         }
         ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
+   }
+   
+   public static void SubsetByTaxaName(String forSubset, String forIDGroup) {
+       Alignment toSubset= ImportUtils.readFromHapmap(dir+forSubset+".hmp.txt.gz", null);
+       Alignment useIDGroup= ImportUtils.readFromHapmap(dir+forIDGroup+".hmp.txt.gz", null);
+       String outHapMapFileName= dir+forSubset+"subsetBy"+forIDGroup+".hmp.txt.gz";
+       IdGroup match= useIDGroup.getIdGroup();
+       IdGroup sub= toSubset.getIdGroup();
+       boolean[] badTaxa= new boolean[toSubset.getSequenceCount()];
+       String[] IDString= new String[useIDGroup.getSequenceCount()];
+       
+       for (int taxon = 0; taxon < useIDGroup.getSequenceCount(); taxon++) {
+           IDString[taxon]= match.getIdentifier(taxon).getNameLevel(0);
+       }
+       for (int taxon = 0; taxon < toSubset.getSequenceCount(); taxon++) {
+           String name= sub.getIdentifier(taxon).getNameLevel(0);
+           int index= Arrays.binarySearch(IDString, name);
+           if (index<0) badTaxa[taxon]= true;
+       }
+       IdGroup removeIDs= IdGroupUtils.idGroupSubset(sub, badTaxa);
+       Alignment align= FilterAlignment.getInstanceRemoveIDs(toSubset, removeIDs);
+       ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
    }
    
    //from Alberto to make a beagle 3 file
@@ -701,7 +724,11 @@ public class KellyUtils {
 //       Alignment a= ImportUtils.readFromHapmap(dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.hmp.txt", null);
 //       saveDelimitedAlignment(a,"\t",dir+"maizeHapMapV2_B73RefGenV2_201203028_chr10.bgl");
        
-       RandomlySampleAlignment("SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,1000,false);
+//       RandomlySampleAlignment("SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000",true,500,false);
+       
+       String toSubset= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String IDGroup= "SNP55K_maize282_AGPv2_20100513_1.chr10";
+       SubsetByTaxaName(toSubset, IDGroup);
 
    }
 }
