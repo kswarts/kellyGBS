@@ -15,7 +15,6 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxa;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaUtils;
-import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
@@ -95,8 +94,9 @@ public class KellyPipelinesGeneric {
    }
    
    public static void runMinorWindowViterbiImputationPlugin() {
-       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String base= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
+//       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
        String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz";
        
        String[] minMnCnt= {"15","20","25","30"};
@@ -106,31 +106,37 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= "_masked_HomoSegBlock200HetWithExtras8k.minMtCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
-//            String[] testArgs = new String[] {
-//                 "-hmp",   dir+base+"_masked.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-//                 "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
-//                 "-o",     dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-//     //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
-//     //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-//                 "-sC",    "10",  //Start chromosome
-//                 "-eC",    "10",  //End chromosome\n"
-//                 "-minMnCnt",    minMnCnt[i],  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
-//                 "-mxInbErr",    mxInbErr[j],    //Maximum inbred error rate\n"
-//                 "-mxHybErr",    mxHybErr[k],    //Maximum hybrid error rate\n"
-//     //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
-//     //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
-//     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
-//                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
-//            };
-//            String[] args = testArgs;
-//            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
-//            plugin.setParameters(args);
-//            plugin.performFunction(null);
-//            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5");
-//            ExportUtils.writeToHapmap(outHDF5, true, dir+"Results/20130531_1/"+base+out+".hmp.txt.gz", '\t', null);
+            String out= "_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
+            String[] testArgs = new String[] {
+                 "-hmp",   dir+base+"_masked55k.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
+                 "-o",     dir+base+out+".imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+     //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
+     //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-sC",    "10",  //Start chromosome
+                 "-eC",    "10",  //End chromosome\n"
+                 "-minMnCnt",    minMnCnt[i],  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
+                 "-mxInbErr",    mxInbErr[j],    //Maximum inbred error rate\n"
+                 "-mxHybErr",    mxHybErr[k],    //Maximum hybrid error rate\n"
+     //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
+     //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
+     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
+                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
+            };
+            String[] args = testArgs;
+            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
+            plugin.setParameters(args);
+            plugin.performFunction(null);
+            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5");
+            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
+            //for 1:300 internal mask
             ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
-                ImportUtils.readFromHapmap(dir+"Results/20130531_1/"+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
+                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
+            //for mask against 55k
+            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+"Results/20130531_1/"+base+out+".hmp.txt.gz",null),
+                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz",null),
+                    ImportUtils.readFromHapmap(dir+"SNP55K_maize282_AGPv2_20100513_1.chr10.hmp.txt.gz",null),
+                    true, -1, .6, .01, .2, base+"Accuracy55k.txt");
                }
            }
        }
@@ -297,81 +303,6 @@ public class KellyPipelinesGeneric {
        topm.writeTextFile(new File(TOPMTextFileWPos));
    }
 
-   public static void runTagsToSNPByAlignmentMTPluginOld() {
-//        String[] NAM49_50_ApeKIargs = new String[] {
-//            "-i", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/mergedTBT/NAM49_50_ApeKI_mergedTBT_min10_20110720.tbt.bin",
-//            "-o", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/hapmapOutput/maxAllelicTags100_rep2/",
-//            "-m", "/cbsufsrv4/data1/maizediv/illumina/NAM_ApeKI_plates49_50/mergedTagCounts/NAM49_50_ApeKI_mergedTags_min10.topm.bin",
-//            "-mnLCov", "0.05", // Minimum locus coverage (proportion of Taxa)
-//            "-s", "1",  // Start chromosome
-//            "-e", "10" // End chromosome
-//        };
-
-       String[] args = new String[] {
-           "-i", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/mergedTBT/NAM49_50_PstI_mergedTBT_min50.tbt.bin",
-           "-o", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/hapmapOutput/",
-           "-m", "/cbsufsrv4/data1/maizediv/illumina/NAM_PstI_plates49_50/mergedTagCounts/NAM49_50_PstI_mergedTags_min50.topm.bin",
-           "-mnLCov", "0.1", // Minimum locus coverage (proportion of Taxa)
-           "-s", "1",  // Start chromosome
-           "-e", "10" // End chromosome
-       };
-
-       TagsToSNPByAlignmentMTPlugin plugin = new TagsToSNPByAlignmentMTPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
-   }
-
-   public static void runTagsToSNPByAlignmentMTPlugin() {
-       String[] allZeaArgs = new String[] {
-           "-i", "/home/glaubitz/data/nextgen/allZea/tbt/allZea20110811.tbt.bin",
-           "-o", "/usr/local/maizediv/illumina/allZeaHapMap",
-           "-m", "/home/glaubitz/data/nextgen/allZea/topm/mergedNAM282Ames_072011.topm.bin",
-           "-mnF",   "0.9",
-           "-mnMAF", "0.005",
-           "-mnMAC", "20",
-           "-mnLCov","0.10", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       String workdir= "/Users/kelly/Documents/GBS/";
-       String[] SWLandracesArgs = new String[] {
-
-           "-i",    workdir+"SW_landraces/mergedTBT/SW_landraces_min1.tbt.byte",
-           "-o",    workdir+"SW_landraces/hapmap/unfilt",
-           "-m",    workdir+"topm_filtered_042012.topm",
-           "-mUpd", workdir+"topm_filtered_04012_wSW3.topm",
-//            "-mnF",   "0.9",
-           "-mnMAF", "0.02",
-           "-mnMAC", "10",
-           "-mnLCov","0.02", // Minimum locus coverage (proportion of Taxa)
-//            "-inclRare",
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       String[] RILandracesArgs = new String[] {
-
-           "-i",    workdir+"RI_landraces/mergedTBT/SW_landraces_min1.tbt.byte",
-           "-o",    workdir+"RI_landraces/hapmap/unfilt",
-           "-m",    workdir+"topm_filtered_042012.topm",
-           "-mUpd", workdir+"topm_filtered_04012_wSW3.topm",
-//            "-mnF",   "0.9",
-           "-mnMAF", "0.02",
-           "-mnMAC", "10",
-           "-mnLCov","0.02", // Minimum locus coverage (proportion of Taxa)
-//            "-inclRare",
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-
-       String[] args = SWLandracesArgs;
-       TagsToSNPByAlignmentMTPlugin plugin = new TagsToSNPByAlignmentMTPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
-   }
-
    public static void runMergeDuplicateSNPsPlugin() {
 
        String testWorkdir = "C:/Users/jcg233/Documents/Bioinformatics/NextGen/NAM_ApeKI_plates49_50/hapmapOutput/testMergeDuplicateSNPsPlugin/";
@@ -485,26 +416,6 @@ public class KellyPipelinesGeneric {
        plugin.performFunction(null);
    }
 
-   public static void runBiParentalErrorCorrection() {
-
-       String workdir = "/usr/local/maizediv/illumina/allZeaHapMap/CintaFM/";
-
-       String[] args = new String[] {
-           "-hmp", workdir + "CintaFM20110812_Tx303_Z025_maf20_chr+.hmp.txt",
-           "-o",   workdir + "CintaFM20110812_Tx303_Z025_maf20_r50_chr+.hmp.txt",
-           "-oB",  workdir + "errorBin.txt",
-           "-oE",  workdir + "errorBySNP.txt",
-           "-popM", "Z[0-9]{3}",
-           "-sC",    "8",
-           "-eC",    "8",
-           "-mxE",   "0.01",
-           "-mnD",   "2.0",
-           "-mnPLD", "0.5",
-       };
-
-       BiParentalErrorCorrection.main(args);
-   }
-
     public static void runMergeIdenticalTaxaPlugin() {
        String basedir = "/usr/local/maizediv/illumina/Zea/build20120110/bpec/TeoDNA_P1/";
        String[] TeoDNA_P1Args = new String[] {
@@ -616,24 +527,6 @@ public class KellyPipelinesGeneric {
            "-eC", ""+eC // End chromosome
        };
        FastImputationBitFixedWindow.main(args);
-   }
-
-   public static void runQseqToHapMapPlugin() {
-
-       String[] DTMAArgs = new String[] {
-           "-i", "/usr/local/maizediv/illumina/Zea/DTMA/qseq",   // contains a single HiSeq lane from DTMA (B08G4ABXX lane 1)
-           "-k", "/usr/local/maizediv/illumina/Zea/DTMA/DTMA_1-3_Kassa_31-38_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-o", "/usr/local/maizediv/illumina/Zea/DTMA/qseq2hapmap",
-           "-m", "/usr/local/maizediv/illumina/Zea/DTMA/topm/mergedNAM282Ames_variants2_20111018.topm.bin", // master TOPM file with variants recorded from discovery phase
-//            "-c", "1", // Minimum tag count (default is 1)
-//            "-d", "0",  // Maximum divergence between new read and previously mapped read (default = 0)
-       };
-
-       String[] args = DTMAArgs;
-       QseqToHapMapPlugin plugin = new QseqToHapMapPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
    }
 
    public static void runRawReadsToHapMapPlugin() {
@@ -902,123 +795,6 @@ public class KellyPipelinesGeneric {
 
    }
 
-   public static void analyzeB08AAABXX_1_PstI_IBM() {
-       String baseDir = "/usr/local/maizediv/illumina/Zea/PstI/";
-
-       String[] FastqToTagCountArgs = new String[] {
-           "-i", baseDir+"fastq",
-           "-k", baseDir+"B08AAABXX_1_IBM94PstI_key.txt",
-           "-e", "PstI", // Enzyme used to create the GBS library
-//            "-s", "200000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-           "-c", "50", // Minimum tag count (default is 1).
-           "-o", baseDir+"tagCounts",
-       };
-       FastqToTagCountPlugin pluginFastqToTagCount = new FastqToTagCountPlugin();
-       pluginFastqToTagCount.setParameters(FastqToTagCountArgs);
-       pluginFastqToTagCount.performFunction(null);
-
-       String[] FastqToTBTArgs = new String[] {
-           "-i", baseDir+"fastq",
-           "-k", baseDir+"B08AAABXX_1_IBM94PstI_key.txt",
-           "-e", "PstI", // Enzyme used to create the GBS library
-           "-o", baseDir+"tbt",
-           "-c", "1", // Minimum tag count (default is 1).
-           "-t", baseDir+"tagCounts/B08AAABXX_1.cnt", // master Tags file (only one lane)
-       };
-       FastqToTBTPlugin pluginFastqToTBT = new FastqToTBTPlugin();
-       pluginFastqToTBT.setParameters(FastqToTBTArgs);
-       pluginFastqToTBT.performFunction(null);
-
-       String TagCountFileName = baseDir+"tagCounts/B08AAABXX_1.cnt";
-       String FastQFileName    = baseDir+"tagCounts/B08AAABXX_1_IBM94PstI_min50.fastq";
-       TagCounts tc = new TagCounts();
-       tc.toFASTQ(TagCountFileName, FastQFileName);
-
-       String[] SAMConverterPluginArgs = new String[] {
-           "-i", baseDir+"tagCounts/B08AAABXX_1_IBM94PstI_min50.sam",
-           "-o", baseDir+     "topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-       };
-       SAMConverterPlugin pluginSAMConverter = new SAMConverterPlugin();
-       pluginSAMConverter.setParameters(SAMConverterPluginArgs);
-       pluginSAMConverter.performFunction(null);
-
-       String[] TagsToSNPByAlignmentArgs = new String[] {
-           "-i",    baseDir+"tbt/B08AAABXX_1.tbt.bin",
-           "-o",    baseDir+"hapmap/minCount50",
-           "-m",    baseDir+"topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-//            "-mUpd", baseDir+"",
-           "-mnF",   "0.8",  // allow some more hets in IBM
-           "-mnMAF", "0.2",
-           "-mnMAC", "90",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.80", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       TagsToSNPByAlignmentMTPlugin pluginTagsToSNPByAlignment = new TagsToSNPByAlignmentMTPlugin();
-       pluginTagsToSNPByAlignment.setParameters(TagsToSNPByAlignmentArgs);
-       pluginTagsToSNPByAlignment.performFunction(null);
-   }
-
-   public static void analyzeRI_SW_SpanLandraces() {
-       String baseDir = "Users/kelly/Documents/GBS/";
-
-       String[] FastqToTagCountArgs = new String[] {
-           "-i", baseDir+"fastq",
-           "-k", baseDir+"landraceCombo/fastq/kelly_Landrace_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-//            "-s", "200000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-           "-c", "2", // Minimum tag count (default is 1).
-           "-o", baseDir+"landraceCombo/tagCounts",
-       };
-       FastqToTagCountPlugin pluginFastqToTagCount = new FastqToTagCountPlugin();
-       pluginFastqToTagCount.setParameters(FastqToTagCountArgs);
-       pluginFastqToTagCount.performFunction(null);
-
-       String[] FastqToTBTArgs = new String[] {
-           "-i", baseDir+"fastq",
-           "-k", baseDir+"landraceCombo/fastq/kelly_Landrace_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-o", baseDir+"tbt",
-           "-c", "1", // Minimum tag count (default is 1).
-           "-y", //tbtBYTE
-           "-t",
-       };
-       FastqToTBTPlugin pluginFastqToTBT = new FastqToTBTPlugin();
-       pluginFastqToTBT.setParameters(FastqToTBTArgs);
-       pluginFastqToTBT.performFunction(null);
-
-       String TagCountFileName = baseDir+"tagCounts/B08AAABXX_1.cnt";
-       String FastQFileName    = baseDir+"tagCounts/B08AAABXX_1_IBM94PstI_min50.fastq";
-       TagCounts tc = new TagCounts();
-       tc.toFASTQ(TagCountFileName, FastQFileName);
-
-       String[] SAMConverterPluginArgs = new String[] {
-           "-i", baseDir+"tagCounts/B08AAABXX_1_IBM94PstI_min50.sam",
-           "-o", baseDir+     "topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-       };
-       SAMConverterPlugin pluginSAMConverter = new SAMConverterPlugin();
-       pluginSAMConverter.setParameters(SAMConverterPluginArgs);
-       pluginSAMConverter.performFunction(null);
-
-       String[] TagsToSNPByAlignmentArgs = new String[] {
-           "-i",    baseDir+"tbt/B08AAABXX_1.tbt.bin",
-           "-o",    baseDir+"hapmap/minCount50",
-           "-m",    baseDir+"topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-//            "-mUpd", baseDir+"",
-           "-mnF",   "0.8",  // allow some more hets in IBM
-           "-mnMAF", "0.2",
-           "-mnMAC", "90",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.80", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       TagsToSNPByAlignmentMTPlugin pluginTagsToSNPByAlignment = new TagsToSNPByAlignmentMTPlugin();
-       pluginTagsToSNPByAlignment.setParameters(TagsToSNPByAlignmentArgs);
-       pluginTagsToSNPByAlignment.performFunction(null);
-   }
-
    public static void analyzeB08AAABXX_1_PstI_IBM_TBTByte() {
        String baseDir = "/usr/local/maizediv/illumina/Zea/PstI/";
 
@@ -1233,159 +1009,4 @@ public class KellyPipelinesGeneric {
            tp = new TasselPipeline(args, null);
        }
    }
-
-   public static void getHapMapReport() {
-       String infileName = "/usr/local/maizediv/illumina/Zea/build20120110/imp/Zea20120110_scv10mF8maf002_mgs_E1pLD5kpUn.imp95_1024.c1.hmp.txt";
-
-       //Use object factory in SimpleAlignment to get an object that implements Alignment
-       Alignment a=ImportUtils.readFromHapmap(infileName);
-       SimpleAlignment file=SimpleAlignment.getInstance(a);
-       a=null;
-       System.gc();
-
-       int taxonCount=file.getIdGroup().getIdCount(), nonBlankTaxaCount=0;
-       for (int i = 0; i < taxonCount; i++){
-           String name=file.getIdGroup().getIdentifier(i).getName();
-               if(!name.equalsIgnoreCase("blank") && !name.equalsIgnoreCase("empty")) nonBlankTaxaCount++;
-       }
-
-       int siteCount=file.getSiteCount();
-
-       //Taxon properties
-       int[] taxonCalls=new int[taxonCount];
-       int[] taxonHetCalls=new int[taxonCount];
-
-       //Histogram properties
-       int numBins=20;
-       int binWidth=100/numBins;
-       int[] bins=new int[numBins];
-       int[] hetBins=new int[numBins];
-
-       System.out.println(
-           infileName+"\n"+
-           "Total taxa:\t"+file.getIdGroup().getIdCount()+"\n"+
-           "Total non-\"blank\" taxa:\t"+nonBlankTaxaCount+"\n"+
-           "Total SNPs:\t"+file.getSiteCount()+"\n"
-       );
-
-       System.out.println();
-       System.out.println("Site Properties");
-       System.out.println(
-               "Site\t"
-               + "Position\t"
-               + "Calls\t"
-               + "HetCalls\t"
-               + "CallRate\t"
-               + "HetCallRate\t"
-               +"MAF"
-       );
-
-       for (int site = 0; site < siteCount; site++){
-           int calls=0, hetCalls=0;
-           //Skip uncalled bases.  Increment "calls" for all called bases and "hetCalls" for hets.
-           for (int taxon = 0; taxon < taxonCount; taxon++) {
-               if(file.getIdGroup().getIdentifier(taxon).getName().equalsIgnoreCase("blank")) continue;    //Skip blank samples
-
-               char base = (char)file.getBase(taxon, site);
-               switch(base){
-                   case 'N':
-                       break;
-                   case 'A':  case 'C':  case 'G':  case 'T':
-                       calls++;
-                       taxonCalls[taxon]++;
-                       break;
-                   default:
-                       calls++;
-                       hetCalls++;
-                       taxonCalls[taxon]++;
-                       taxonHetCalls[taxon]++;
-                       break;
-               }
-           }
-
-           //Calculate call rates (site coverage) as #calls/#taxa
-           float callRate = ((float)calls/(float)nonBlankTaxaCount);
-           float hetCallRate = ((float)hetCalls/(float)nonBlankTaxaCount);
-
-           //Add SNP to an appropriate chart bin based on its call rate
-           double percentile=callRate*100;
-           for (int bin = 0; bin < bins.length; bin++) {
-               int lowerBound = (bin*binWidth);
-               int upperBound = ((bin+1)*binWidth);
-               if (bin > 0) {
-                   if(percentile <= upperBound && percentile > lowerBound)  bins[bin]+=1;
-               } else {
-                   if(percentile <= upperBound)  bins[bin]+=1;
-               }
-           }
-
-           System.out.println(
-               site+"\t"+
-               file.getPositionInLocus(site)+"\t"+
-               calls+"\t"+
-               hetCalls+"\t"+
-               callRate+"\t"+
-               hetCallRate+"\t"+
-               file.getMinorAlleleFrequency(site)
-           );
-       }
-
-
-       //Print bar chart data for sites
-       System.out.println();
-       System.out.println("Site Coverage:");
-       System.out.println("%CalledTaxa:\t"+"nSNPs");
-       for (int bin = 0; bin < bins.length; bin++) {
-           int callRatePct =((bin+1)*binWidth);
-           System.out.println(callRatePct+"\t"+bins[bin]);
-           bins[bin]=0; //Re-zero bins after they are printed
-       }
-
-       //Print taxon coverage stats
-       System.out.println();
-       System.out.println("Taxon Properties");
-       System.out.println(
-               "FullName\t"
-               +"Calls\t"
-               +"HetCalls\t"
-               +"CallRate\t"
-               +"HetCallRate\t"
-       );
-
-       for (int i = 0; i < taxonCount; i++) {
-           if(file.getIdGroup().getIdentifier(i).getName().equalsIgnoreCase("blank")) continue;    //Skip blank samples
-           double callRate=(float)taxonCalls[i]/(float)siteCount;
-           double hetCallRate=(float)taxonHetCalls[i]/(float)siteCount;
-           System.out.println(
-                   file.getFullTaxaName(i)+"\t"
-                   +taxonCalls[i]+"\t"
-                   +taxonHetCalls[i]+"\t"
-                   +callRate+"\t"
-                   +hetCallRate+"\t"
-           );
-
-           //Add SNP to an appropriate chart bin based on its call rate
-           double percentile=callRate*100;
-           for (int bin = 0; bin < bins.length; bin++) {
-               int lowerBound = (bin*binWidth);
-               int upperBound = ((bin+1)*binWidth);
-               if (bin > 0) {
-                   if(percentile <= upperBound && percentile > lowerBound)  bins[bin]+=1;
-               } else {
-                   if(percentile <= upperBound)  bins[bin]+=1;
-               }
-           }
-       }
-
-       //Print bar chart data for taxa
-       System.out.println();
-       System.out.println("Taxon Coverage:");
-       System.out.println("%CalledSites:\t"+"nTaxa");
-       for (int bin = 0; bin < bins.length; bin++){
-           int callRatePct =((bin+1)*binWidth);
-           System.out.println(callRatePct+"\t"+bins[bin]);
-       }
-       System.gc();
-   }
-
 }

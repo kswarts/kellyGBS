@@ -101,32 +101,32 @@ public class KellyUtils {
        theTBTOut.writeDistFile(new File(outTBTFileName), FilePacking.Byte, 1);
    }
    
-   public static void DissectTOPM(String inTOPMFileName) {
-       byte[] byteTest = new byte[1];
-       byteTest[0] = Byte.MIN_VALUE;
-       System.out.println(byteTest[0]);
-       File outTextFileName = new File(inTOPMFileName + ".txt");
-       TagsOnPhysicalMap theTOPM = new TagsOnPhysicalMap(inTOPMFileName, true);
-       int[] dist = theTOPM.mappingDistribution();
-
-       System.out.println("\nTotal tags:\t" + theTOPM.tagNum
-               + "\nMapped tags:\t" + theTOPM.mappedTags()              
-               + "\nTag Distribution:\n");
-       for (int dis = 0; dis < dist.length; dis++) {
-           System.out.println("Tags mapping to " + dis + " locations:\t" + dist[dis]);
-       }
-       theTOPM.writeTextFile(outTextFileName);
-
-
-//       int noMap= 0;
-//       int oneMap= 0;
-//       int twoMap= 0;
-//       int greaterTwoMap= 0;
-//       a
-//       for (int site= 0; site < theTOPM.tagNum; site++) {
-//           theTOPM.getPositionArray(site);
+//   public static void DissectTOPM(String inTOPMFileName) {
+//       byte[] byteTest = new byte[1];
+//       byteTest[0] = Byte.MIN_VALUE;
+//       System.out.println(byteTest[0]);
+//       File outTextFileName = new File(inTOPMFileName + ".txt");
+//       TagsOnPhysicalMap theTOPM = new TagsOnPhysicalMap(inTOPMFileName, true);
+//       int[] dist = theTOPM.mappingDistribution();
+//
+//       System.out.println("\nTotal tags:\t" + theTOPM.tagNum
+//               + "\nMapped tags:\t" + theTOPM.mappedTags()              
+//               + "\nTag Distribution:\n");
+//       for (int dis = 0; dis < dist.length; dis++) {
+//           System.out.println("Tags mapping to " + dis + " locations:\t" + dist[dis]);
 //       }
-   }
+//       theTOPM.writeTextFile(outTextFileName);
+//
+//
+////       int noMap= 0;
+////       int oneMap= 0;
+////       int twoMap= 0;
+////       int greaterTwoMap= 0;
+////       a
+////       for (int site= 0; site < theTOPM.tagNum; site++) {
+////           theTOPM.getPositionArray(site);
+////       }
+//   }
    /**for biologically characterizing a TOPM and associated tagsByTaxaFile. Positions determined based on AGP_v1, centromeres taken from Wolfgruber et al 2012 and pericentromeric/telomeric extrapolated from Gore et al 2009**/ 
    public static void CharTOPMWithTBT(String inTOPMFileName, String inTBTFileName, int divisor) {
        TagsOnPhysicalMap theTOPM= new TagsOnPhysicalMap(inTOPMFileName, true);//reads in the TOPM, true if binary
@@ -542,6 +542,25 @@ public class KellyUtils {
        Object[] dups= firstIndexBad.toArray();
    }
    
+   public static void SitesWithSameNamesOrPositions(String inFile, boolean gz) {
+       String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+       String[] SNPs= a.getSNPIDs();
+       int[] pos= a.getPhysicalPositions();
+       System.out.println("duplicate sites set for removal:");
+       for (int id1 = 0; id1 < SNPs.length; id1++) {
+           for (int id2 = id1+1; id2 < SNPs.length; id2++) {
+               if (SNPs[id1]==SNPs[id2]||pos[id1]==pos[id2]) {
+                   mna.clearSiteForRemoval(id2);
+                   System.out.println(SNPs[id2]+" ("+pos[id2]+")"+" ("+id2+" matches "+id1+")");
+               }
+           }
+       }
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, dir+inFile+"DupSitesRemoved.hmp.txt.gz", '\t', null);
+   }
+   
    public static void MaskSites(String inFile, boolean gz, int maskRate) {
        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
        String outHapMapFileName= dir+inFile+"_masked.hmp.txt";
@@ -726,9 +745,12 @@ public class KellyUtils {
        
 //       RandomlySampleAlignment("SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000",true,500,false);
        
-       String toSubset= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String IDGroup= "SNP55K_maize282_AGPv2_20100513_1.chr10";
-       SubsetByTaxaName(toSubset, IDGroup);
+//       String toSubset= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       String IDGroup= "SNP55K_maize282_AGPv2_20100513_1.chr10";
+//       SubsetByTaxaName(toSubset, IDGroup);
+       
+       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+       SitesWithSameNamesOrPositions("SNP55K_maize282_AGPv2_20100513_1",false);
 
    }
 }

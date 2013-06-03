@@ -37,7 +37,7 @@ public class ImputationAccuracy {
     private static byte knownMin;
     private static byte[] impArray;
     
-    public static void maskFile(String inFile, boolean gz, int sampleIntensity) {
+    public static void MaskFileSample(String inFile, boolean gz, int sampleIntensity) {
         Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
         MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
         for (int taxon= 0;taxon<a.getSequenceCount();taxon++) {            
@@ -47,6 +47,22 @@ public class ImputationAccuracy {
         }
         mna.clean();
         ExportUtils.writeToHapmap(mna, true, dir+inFile+"_masked.hmp.txt.gz", '\t', null);
+    }
+    
+    public static void MaskFile55k(String maskFile, boolean gzMask, String knownFile, boolean gzKnown) {
+        Alignment a= ImportUtils.readFromHapmap(dir+maskFile+(gzMask==true?".hmp.txt.gz":".hmp.txt"), null);
+        MutableNucleotideAlignment mask= MutableNucleotideAlignment.getInstance(a);
+        Alignment known= ImportUtils.readFromHapmap(dir+knownFile+(gzKnown==true?".hmp.txt.gz":".hmp.txt"), null);
+        int[] knownPos= known.getPhysicalPositions();
+        for (int site = 0; site < mask.getSiteCount(); site++) {
+            int pos= mask.getPositionInLocus(site);
+            if (Arrays.binarySearch(knownPos, pos)<0) continue;
+            for (int taxon = 0; taxon < mask.getSequenceCount(); taxon++) {
+                mask.setBase(taxon, site, diploidN);
+            }
+        }
+        mask.clean();
+        ExportUtils.writeToHapmap(mask, true, dir+maskFile+"_masked55k.hmp.txt.gz", '\t', null);
     }
     
     public static double getTrue(boolean[] mask) {
@@ -99,7 +115,7 @@ public class ImputationAccuracy {
         return count;
     }
     
-    public static void makeMasksTest(Alignment known, Alignment unimputed, double cov, double het) {
+    public static void makeMasks55k(Alignment known, Alignment unimputed, double cov, double het) {
         int covCutoff= (int)(cov*(double) unimputed.getSiteCount()); //cutoff for number of sites present to be high cov
         int hetCutoff= (int)(het*(double) unimputed.getSiteCount());
         int inbredCutoff= (int)(.006*(double) unimputed.getSiteCount());
@@ -119,6 +135,7 @@ public class ImputationAccuracy {
             if (highCovTaxa[taxon]==true&&outbred[taxon]==true) highCovHets[taxon]= true;
             if (highCovTaxa[taxon]==true&&inbred[taxon]==true) highCovInbreds[taxon]= true;
         }
+        
         int[] matchTaxon= new int[unimputed.getSequenceCount()];//holds the index of corresponding taxon in known
         String[] knownNames= new String[known.getSequenceCount()];
         for (int taxon = 0; taxon < knownNames.length; taxon++) {
@@ -129,9 +146,9 @@ public class ImputationAccuracy {
             String unkName= unimputed.getIdGroup().getIdentifier(taxon).getNameLevel(0);
             matchTaxon[taxon]= Arrays.binarySearch(knownNames, unkName);
         }
-        
+        int[] knownPos= known.getPhysicalPositions();
         for (int site = 0; site < unimputed.getSiteCount(); site++) {
-            if (known.getTotalGametesNotMissing(site)<known.getSequenceCount()) continue;
+            if (Arrays.binarySearch(knownPos, unimputed.getPositionInLocus(site))<0) continue;
             byte diploidMaj= PhaseHets.getDiploidBase(unimputed.getMajorAllele(site));
             byte diploidMin= PhaseHets.getDiploidBase(unimputed.getMinorAllele(site));
             
@@ -267,7 +284,7 @@ public class ImputationAccuracy {
                 }
     }
         
-    public static void runTest(Alignment known, Alignment imputed, Alignment unimputed, boolean test, int sampleIntensity, double cov, double het, double hwWiggle, String outFileName) {
+    public static void runTest(Alignment known, Alignment imputed, Alignment unimputed, boolean knownTest, int sampleIntensity, double cov, double het, double hwWiggle, String outFileName) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         //for each double array, index 0:homoMajCorrect, 1:homoMinCorrect, 2:homoHetOneCorrect, 3:homoIncorrectHomo, 4:homoIncorrectHet
         //5:homoMissing, 6:hetCorrect, 7:hetOneCorrect, 8:hetIncorrectHomo, 9:hetIncorrectHet, 10:hetMissing, 11:missingImputedHomo, 
@@ -283,7 +300,7 @@ public class ImputationAccuracy {
         double[] highCovOutbred= new double[15];
         double[] highCovOutbredSites= new double[6];
         
-        if (test==true) ImputationAccuracy.makeMasksTest(known, unimputed, cov, het);
+        if (knownTest==true) ImputationAccuracy.makeMasks55k(known, unimputed, cov, het);
         else ImputationAccuracy.makeMasks(known, sampleIntensity, cov, het, hwWiggle);
         for (int taxon= 0;taxon<known.getSequenceCount();taxon++) {            
             for (int site= taxon;site<known.getSiteCount();site+= sampleIntensity) {
@@ -367,17 +384,21 @@ public class ImputationAccuracy {
     public static void main(String[] args) {
         
         //make a mask
-        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
-        maskFile(inFile,true,300);
+//        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//        String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
+//        MaskFileSample(inFile,true,300);
+        
+        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+        MaskFile55k("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1", true,
+                "RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1", true);
         
         //run accuracy
-        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        String knownFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-        String imputedFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_defaultDonor";
-//        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
-        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt.gz", null), 
-                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null), null, false, 300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");
+//        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//        String knownFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//        String imputedFileName= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_masked_defaultDonor";
+////        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
+//        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt.gz", null), 
+//                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null), null, false, 300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");
 //                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, imputedFileName);
         
         

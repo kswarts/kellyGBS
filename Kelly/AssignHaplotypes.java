@@ -17,6 +17,7 @@ import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
+import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import net.maizegenetics.prefs.TasselPrefs;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -31,7 +32,7 @@ public class AssignHaplotypes {
     public static void MatchSitesToRefAlignment(String inFileRef, boolean gzRef, String inFileMod, boolean gzMod) {
        String inFileRefName= (gzRef==true)?dir+inFileRef+".hmp.txt.gz":dir+inFileRef+".hmp.txt";
        String inFileModName= (gzMod==true)?dir+inFileMod+".hmp.txt.gz":dir+inFileMod+".hmp.txt";
-       String outFileName= dir+inFileRef+"_with"+inFileMod+"TaxaIncluded.hmp.txt.gz";
+       String outFileName= dir+inFileMod+"_matchTo_"+inFileRef+".hmp.txt.gz";
        Alignment ref= ImportUtils.readFromHapmap(inFileRefName, null);
        Alignment mod= ImportUtils.readFromHapmap(inFileModName, null);
        ArrayList<Integer> subSite= new ArrayList<Integer>();
@@ -49,7 +50,9 @@ public class AssignHaplotypes {
                if (refIndex>-1) {
                    sitesWithSamePos++;
                    if ((ref.getMajorAllele(refIndex)==mod.getMajorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMinorAllele(site))||
-                           (ref.getMajorAllele(refIndex)==mod.getMinorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMajorAllele(site))) subSite.add(site);
+                           (ref.getMajorAllele(refIndex)==mod.getMinorAllele(site)&&ref.getMinorAllele(refIndex)==mod.getMajorAllele(site))) {
+                       subSite.add(site);
+                   }
                    else {
                        outStream.writeBytes("\nPhysical position: "+mod.getPositionInLocus(site)+"\tSiteIndex: "+site+"/"+refIndex+"\tMod/Ref Maj: ("+mod.getMajorAlleleAsString(site)+"/"+ref.getMajorAlleleAsString(refIndex)+")"+"\tMod/Ref Min: ("+mod.getMinorAlleleAsString(site)+"/"+ref.getMinorAlleleAsString(refIndex)+")");
                        disagree++;
@@ -78,7 +81,7 @@ public class AssignHaplotypes {
        Alignment mod= ImportUtils.readFromHapmap(inFileModName, null);
        ArrayList<Integer> subSite= new ArrayList<Integer>();
        int[] refPos= ref.getPhysicalPositions();
-       int currModPos= 0;
+       int currModPos= 0;      
        //check to make sure that maj/min are the same between alignments for physical positions that match
        int sitesWithSamePos= 0;
        int disagree= 0;
@@ -257,10 +260,16 @@ public class AssignHaplotypes {
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         //for matchSitesInAlignment
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String inMod= "SNP55K_maize282_AGPv2_20100513_1.chr10";
-       MergeToRefAlignment(inRef,true,inMod,true,":55K");
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       String inRef= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+//       String inMod= "SNP55K_maize282_AGPv2_20100513_1.chr10";
+//       MergeToRefAlignment(inRef,true,inMod,true,":55K");
+       
+       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+       String inRef= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String inMod= "RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10";
+//       MergeToRefAlignment(inRef,true,inMod,true,"");
+       MatchSitesToRefAlignment(inRef, true, inMod, false);
        
 //       //find homozygous segments
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
