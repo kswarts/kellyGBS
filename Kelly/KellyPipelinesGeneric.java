@@ -127,13 +127,13 @@ public class KellyPipelinesGeneric {
             MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
             plugin.setParameters(args);
             plugin.performFunction(null);
-            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+"Results/20130531_1/"+base+out+".imp.mhmp.h5");
+            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.mhmp.h5");
             ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
             //for 1:300 internal mask
-            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
-                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
+//            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
+//                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
             //for mask against 55k
-            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+"Results/20130531_1/"+base+out+".hmp.txt.gz",null),
+            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz",null),
                     ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz",null),
                     ImportUtils.readFromHapmap(dir+"SNP55K_maize282_AGPv2_20100513_1.chr10.hmp.txt.gz",null),
                     true, -1, .6, .01, .2, base+"Accuracy55k.txt");
