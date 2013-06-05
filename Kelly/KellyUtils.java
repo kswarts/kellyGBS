@@ -18,8 +18,6 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Set;
-import java.util.TreeSet;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
 import net.maizegenetics.gbs.tagdist.TagCountMutable;
 import net.maizegenetics.gbs.tagdist.TagCounts;
@@ -35,7 +33,7 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
-import net.maizegenetics.pal.ids.Identifier;
+import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.commons.lang.ArrayUtils;
@@ -524,22 +522,44 @@ public class KellyUtils {
             System.out.println("Final num of sites: "+align.getSiteCount());
             return align;
         }
-   }
+   }   
    
-   public static void SitesWithSamePhysicalPositions(String inFile, boolean gz) {
+   public static void RemoveSitesWithGaps(String inFile, boolean gz) {
        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
-       int[] pos= a.getPhysicalPositions();
-       ArrayList<Integer> posList= new ArrayList<Integer>(pos.length);
-       for (int p= 0;p<pos.length;p++) {
-           posList.add(p, pos[p]);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+       for (int site = 0; site < a.getSiteCount(); site++) {
+           if (mna.getMajorAllele(site)==NucleotideAlignmentConstants.GAP_ALLELE||mna.getMajorAllele(site)==NucleotideAlignmentConstants.INSERT_ALLELE
+               ||mna.getMinorAllele(site)==NucleotideAlignmentConstants.GAP_ALLELE||mna.getMinorAllele(site)==NucleotideAlignmentConstants.INSERT_ALLELE)
+               mna.clearSiteForRemoval(site);
        }
-       ArrayList<Integer> dupSites= new ArrayList<Integer>();
-       for (int site= 0;site<a.getSiteCount();site++) {
-           if (posList.indexOf(a.getPositionInLocus(site))!=posList.lastIndexOf(a.getPositionInLocus(site))) System.out.println(posList.indexOf(a.getPositionInLocus(site)));
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, dir+inFile+"IndelsRemoved.hmp.txt.gz", '\t', null);
+   }
+   
+   public static void CheckSitesForLD(String posToCheckFile, boolean posToCheckGZ, String inFile, boolean inGz, double r2cutoff) {
+       String posFileName= (posToCheckGZ==true)?dir+posToCheckFile+".hmp.txt.gz":dir+posToCheckFile+".hmp.txt";
+       Alignment siteAlign= ImportUtils.readFromHapmap(posFileName, null);
+       String inHapMapFileName= (inGz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(siteAlign);
+       int[] pos= siteAlign.getPhysicalPositions();
+       for (int sites:pos) {
+           int focus= a.getSiteOfPhysicalPosition(sites, null);
+           LinkageDisequilibrium ld= new LinkageDisequilibrium(a, 10,
+                   LinkageDisequilibrium.testDesign.SlidingWindow, focus, null, false, -1, null);
+           ld.run();
+           double[] r2= new double[18];
+           for (int site = 1; site < 10; site++) {
+               r2[site]= ld.getRSqr(focus, focus-site);
+               r2[r2.length-site]= ld.getRSqr(focus, focus+site);
+           }
+           for(double r:r2){System.out.println(r);}
+           Arrays.sort(r2);
+           if (r2[10]>r2cutoff) mna.clearSiteForRemoval(sites);
        }
-       Set<Integer> firstIndexBad = new TreeSet<Integer>(dupSites); 
-       Object[] dups= firstIndexBad.toArray();
+       mna.clean();
+       ExportUtils.writeToHapmap(mna, true, posToCheckFile+"_goodLD.hmp.txt.gz", '\t', null);
    }
    
    public static void SitesWithSameNamesOrPositions(String inFile, boolean gz) {
@@ -749,8 +769,12 @@ public class KellyUtils {
 //       String IDGroup= "SNP55K_maize282_AGPv2_20100513_1.chr10";
 //       SubsetByTaxaName(toSubset, IDGroup);
        
+//       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+//       SitesWithSameNamesOrPositions("SNP55K_maize282_AGPv2_20100513_1",false);
+//       
        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       SitesWithSameNamesOrPositions("SNP55K_maize282_AGPv2_20100513_1",false);
+       CheckSitesForLD("RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,
+               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
 
    }
 }

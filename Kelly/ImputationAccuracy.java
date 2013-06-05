@@ -32,10 +32,11 @@ public class ImputationAccuracy {
     public static byte diploidN= NucleotideAlignmentConstants.getNucleotideDiploidByte("NN");
     private static byte knownBase;
     private static byte impBase;
-    private static byte[] knownArray;
     private static byte knownMaj;
     private static byte knownMin;
     private static byte[] impArray;
+    private static int[] matchTaxon;
+    
     
     public static void MaskFileSample(String inFile, boolean gz, int sampleIntensity) {
         Alignment a= ImportUtils.readFromHapmap(dir+inFile+(gz==true?".hmp.txt.gz":".hmp.txt"), null);
@@ -136,7 +137,7 @@ public class ImputationAccuracy {
             if (highCovTaxa[taxon]==true&&inbred[taxon]==true) highCovInbreds[taxon]= true;
         }
         
-        int[] matchTaxon= new int[unimputed.getSequenceCount()];//holds the index of corresponding taxon in known
+        matchTaxon= new int[unimputed.getSequenceCount()];//holds the index of corresponding taxon in known
         String[] knownNames= new String[known.getSequenceCount()];
         for (int taxon = 0; taxon < knownNames.length; taxon++) {
             knownNames[taxon]= known.getIdGroup().getIdentifier(taxon).getNameLevel(0);
@@ -146,19 +147,38 @@ public class ImputationAccuracy {
             String unkName= unimputed.getIdGroup().getIdentifier(taxon).getNameLevel(0);
             matchTaxon[taxon]= Arrays.binarySearch(knownNames, unkName);
         }
+        
         int[] knownPos= known.getPhysicalPositions();
         for (int site = 0; site < unimputed.getSiteCount(); site++) {
+            int matchSite= known.getSiteOfPhysicalPosition(unimputed.getPositionInLocus(site), null);
             if (Arrays.binarySearch(knownPos, unimputed.getPositionInLocus(site))<0) continue;
             byte diploidMaj= PhaseHets.getDiploidBase(unimputed.getMajorAllele(site));
             byte diploidMin= PhaseHets.getDiploidBase(unimputed.getMinorAllele(site));
             
             for (int taxon = 0; taxon < unimputed.getSequenceCount(); taxon++) {
-                if (known.isHeterozygous(matchTaxon[taxon], site)==true) knownHetMask[taxon][site]= true;
-                else if (known.getBase(matchTaxon[taxon], site)==diploidMaj) calledHomoMajMask[taxon][site]= true;
-                else if (known.getBase(matchTaxon[taxon], site)==diploidMin) calledHomoMinMask[taxon][site]= true;
-                else calledMissingMask[matchTaxon[taxon]][site]= true;
+                if (known.isHeterozygous(matchTaxon[taxon], matchSite)==true) knownHetMask[taxon][site]= true;
+                else if (known.getBase(matchTaxon[taxon], matchSite)==diploidMaj) calledHomoMajMask[taxon][site]= true;
+                else if (known.getBase(matchTaxon[taxon], matchSite)==diploidMin) calledHomoMinMask[taxon][site]= true;
+                else if (known.getBase(matchTaxon[taxon],matchSite)==diploidN) calledMissingMask[taxon][site]= true;
             }
         }
+        System.out.println("Parameters:\nHigh Coverage Cutoff: "+cov+"\nOutbred Cutoff:"+het+"\nInbred Cutoff: .006"
+                    +"\n\nNumber of siteTaxa considered:\n"+"\nknownHets: "+
+                    ImputationAccuracy.getTrue(knownHetMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(knownHetMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(knownHetMask, highCovInbreds)+")"+"\n"+
+                    "calledHomoMaj"+ImputationAccuracy.getTrue(calledHomoMajMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovInbreds)+")"+"\n"+
+                    "calledHomoMin"+ImputationAccuracy.getTrue(calledHomoMinMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovInbreds)+")"+"\n"+
+                    "calledMissing"+ImputationAccuracy.getTrue(calledMissingMask)+"\n\n"+
+                    "Number of sequences in each group:\nTotalNumSequences: "+known.getSequenceCount()+"\nhighCovTaxa"+ImputationAccuracy.getTrue(highCovTaxa)+"\n"+
+                    "highCovInbred"+ImputationAccuracy.getTrue(highCovInbreds)+"\n"+
+                    "highCovHets"+ImputationAccuracy.getTrue(highCovHets)+"\n"+
+                    "inbred"+ImputationAccuracy.getTrue(inbred)+"\n"+
+                    "outbred"+ImputationAccuracy.getTrue(outbred)+"\n");
     }
     
     public static void makeMasks(Alignment known, int sampleIntensity, double cov, double het, double hwWiggle) { //het, homo, missing, highCov, HW sites (wiggle refers to the leeway given as a proportion of the minor allele frequency)
@@ -203,22 +223,23 @@ public class ImputationAccuracy {
 ////            if (obsHetFreq>(expHetFreq-(q*hwWiggle))&&obsHetFreq<(expHetFreq+(q*hwWiggle))) HWSites[site]= true;
 //        }
         //system.out to debug
-        System.out.println("Number of siteTaxa considered:\n"+"knownHets: "+
-                ImputationAccuracy.getTrue(knownHetMask)+" (highHet/highHomo: "+
-                ImputationAccuracy.getTrue(knownHetMask, highCovHets)+"/"+
-                ImputationAccuracy.getTrue(knownHetMask, highCovInbreds)+")"+"\n"+
-                "calledHomoMaj"+ImputationAccuracy.getTrue(calledHomoMajMask)+" (highHet/highHomo: "+
-                ImputationAccuracy.getTrue(calledHomoMajMask, highCovHets)+"/"+
-                ImputationAccuracy.getTrue(calledHomoMajMask, highCovInbreds)+")"+"\n"+
-                "calledHomoMin"+ImputationAccuracy.getTrue(calledHomoMinMask)+" (highHet/highHomo: "+
-                ImputationAccuracy.getTrue(calledHomoMinMask, highCovHets)+"/"+
-                ImputationAccuracy.getTrue(calledHomoMinMask, highCovInbreds)+")"+"\n"+
-                "calledMissing"+ImputationAccuracy.getTrue(calledMissingMask)+"\n"+
-                "Number of sequences in each group:\n"+"highCovTaxa"+ImputationAccuracy.getTrue(highCovTaxa)+"\n"+
-                "highCovInbred"+ImputationAccuracy.getTrue(highCovInbreds)+"\n"+
-                "highCovHets"+ImputationAccuracy.getTrue(highCovHets)+"\n"+
-                "inbred"+ImputationAccuracy.getTrue(inbred)+"\n"+
-                "outbred"+ImputationAccuracy.getTrue(outbred));
+        System.out.println("Parameters:\nHigh Coverage Cutoff: "+cov+"\nOutbred Cutoff:"+het+"\nInbred Cutoff: .006"
+                    +"\nSample Intensity:"+sampleIntensity+"\n\nNumber of siteTaxa considered:\n"+"\nknownHets: "+
+                    ImputationAccuracy.getTrue(knownHetMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(knownHetMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(knownHetMask, highCovInbreds)+")"+"\n"+
+                    "calledHomoMaj"+ImputationAccuracy.getTrue(calledHomoMajMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovInbreds)+")"+"\n"+
+                    "calledHomoMin"+ImputationAccuracy.getTrue(calledHomoMinMask)+" (highHet/highHomo: "+
+                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovHets)+"/"+
+                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovInbreds)+")"+"\n"+
+                    "calledMissing"+ImputationAccuracy.getTrue(calledMissingMask)+"\n\n"+
+                    "Number of sequences in each group:\nTotalNumSequences: "+known.getSequenceCount()+"\nhighCovTaxa"+ImputationAccuracy.getTrue(highCovTaxa)+"\n"+
+                    "highCovInbred"+ImputationAccuracy.getTrue(highCovInbreds)+"\n"+
+                    "highCovHets"+ImputationAccuracy.getTrue(highCovHets)+"\n"+
+                    "inbred"+ImputationAccuracy.getTrue(inbred)+"\n"+
+                    "outbred"+ImputationAccuracy.getTrue(outbred)+"\n");
     }
     
     public static void calculateAccuracy(Alignment imputed, int taxon, int site, double[]type, double[]typeSites) {
@@ -268,8 +289,8 @@ public class ImputationAccuracy {
                         type[14]++;
                     }
                     else if (impArray[0]==knownMaj||impArray[1]==knownMin||impArray[1]==knownMaj||impArray[0]==knownMin) {
-                        type[7]+= .5;
-                        type[14]++;
+                        type[7]++;
+                        type[14]+= .5;
                     }
                     else {
                         type[8]++;
@@ -300,79 +321,98 @@ public class ImputationAccuracy {
         double[] highCovOutbred= new double[15];
         double[] highCovOutbredSites= new double[6];
         
-        if (knownTest==true) ImputationAccuracy.makeMasks55k(known, unimputed, cov, het);
-        else ImputationAccuracy.makeMasks(known, sampleIntensity, cov, het, hwWiggle);
-        for (int taxon= 0;taxon<known.getSequenceCount();taxon++) {            
-            for (int site= taxon;site<known.getSiteCount();site+= sampleIntensity) {
-                knownBase= known.getBase(taxon, site);
-                impBase= imputed.getBase(taxon, site);
-                knownArray= known.getBaseArray(taxon, site);
-                knownMaj= known.getMajorAllele(site);
-                knownMin= known.getMinorAllele(site);
-                impArray= imputed.getBaseArray(taxon, site);
-                calculateAccuracy(imputed,taxon,site,all,allSites);//calculates accuracy for all
-                if (inbred[taxon]==true) {//calculates accuracy for only those coded as inbred (not 1-het)
-                    calculateAccuracy(imputed,taxon,site,allInbred,allInbredSites);
-                    if (highCovTaxa[taxon]==true) {//accuracy for inbred sites with high coverage
-                        calculateAccuracy(imputed,taxon,site,highCovInbred,highCovInbredSites);
-                    }                    
-                }
-                if (outbred[taxon]==true) {//calculates accuracy for landraces only (heterozygosity above specified cutoff)
-                    calculateAccuracy(imputed,taxon,site,allOutbred,allOutbredSites);
-                    if (highCovTaxa[taxon]==true) {//accuracy for landraces with high coverage
-                        calculateAccuracy(imputed,taxon,site,highCovOutbred,highCovOutbredSites);
+        if (knownTest==true) {
+            ImputationAccuracy.makeMasks55k(known, unimputed, cov, het);
+            
+            int[] knownPos= known.getPhysicalPositions();
+            for (int site = 0; site < imputed.getSiteCount(); site++) {
+                if (Arrays.binarySearch(knownPos, imputed.getPositionInLocus(site))<0) continue;
+                int matchSite= known.getSiteOfPhysicalPosition(unimputed.getPositionInLocus(site), null);
+                knownMaj= known.getMajorAllele(matchSite);
+                knownMin= known.getMinorAllele(matchSite);
+                for (int taxon = 0; taxon < unimputed.getSequenceCount(); taxon++) {
+                    impArray= imputed.getBaseArray(taxon, site);
+                    impBase= imputed.getBase(taxon, site);
+                    knownBase= known.getBase(matchTaxon[taxon], matchSite);
+                    calculateAccuracy(imputed,taxon,site,all,allSites);//calculates accuracy for all
+                    if (inbred[taxon]==true) {//calculates accuracy for only those coded as inbred (not 1-het)
+                        calculateAccuracy(imputed,taxon,site,allInbred,allInbredSites);
+                        if (highCovTaxa[taxon]==true) {//accuracy for inbred sites with high coverage
+                            calculateAccuracy(imputed,taxon,site,highCovInbred,highCovInbredSites);
+                        }                    
                     }
-                }                
+                    if (outbred[taxon]==true) {//calculates accuracy for landraces only (heterozygosity above specified cutoff)
+                        calculateAccuracy(imputed,taxon,site,allOutbred,allOutbredSites);
+                        if (highCovTaxa[taxon]==true) {//accuracy for landraces with high coverage
+                            calculateAccuracy(imputed,taxon,site,highCovOutbred,highCovOutbredSites);
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            ImputationAccuracy.makeMasks(known, sampleIntensity, cov, het, hwWiggle);
+            for (int taxon= 0;taxon<known.getSequenceCount();taxon++) {            
+                for (int site= taxon;site<known.getSiteCount();site+= sampleIntensity) {
+                    knownBase= known.getBase(taxon, site);
+                    impBase= imputed.getBase(taxon, site);
+                    knownMaj= known.getMajorAllele(site);
+                    knownMin= known.getMinorAllele(site);
+                    impArray= imputed.getBaseArray(taxon, site);
+                    calculateAccuracy(imputed,taxon,site,all,allSites);//calculates accuracy for all
+                    if (inbred[taxon]==true) {//calculates accuracy for only those coded as inbred (not 1-het)
+                        calculateAccuracy(imputed,taxon,site,allInbred,allInbredSites);
+                        if (highCovTaxa[taxon]==true) {//accuracy for inbred sites with high coverage
+                            calculateAccuracy(imputed,taxon,site,highCovInbred,highCovInbredSites);
+                        }                    
+                    }
+                    if (outbred[taxon]==true) {//calculates accuracy for landraces only (heterozygosity above specified cutoff)
+                        calculateAccuracy(imputed,taxon,site,allOutbred,allOutbredSites);
+                        if (highCovTaxa[taxon]==true) {//accuracy for landraces with high coverage
+                            calculateAccuracy(imputed,taxon,site,highCovOutbred,highCovOutbredSites);
+                        }
+                    }                
+                }
             }
         }
         try{
-            String outputFileName= dir+outFileName+"_accuracyTest.txt";
+            String outputFileName= dir+outFileName;
             DataOutputStream outStream= new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFileName)));
-            outStream.writeBytes("Parameters:\nHigh Coverage Cutoff: "+cov+"\nOutbred Cutoff:"+het+"\nInbred Cutoff: .006"
-                    +"\nSample Intensity:"+sampleIntensity+"\n\nNumber of siteTaxa considered:\n"+"total number of sites: "+allSites[0]+"\nknownHets: "+
-                    ImputationAccuracy.getTrue(knownHetMask)+" (highHet/highHomo: "+
-                    ImputationAccuracy.getTrue(knownHetMask, highCovHets)+"/"+
-                    ImputationAccuracy.getTrue(knownHetMask, highCovInbreds)+")"+"\n"+
-                    "calledHomoMaj"+ImputationAccuracy.getTrue(calledHomoMajMask)+" (highHet/highHomo: "+
-                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovHets)+"/"+
-                    ImputationAccuracy.getTrue(calledHomoMajMask, highCovInbreds)+")"+"\n"+
-                    "calledHomoMin"+ImputationAccuracy.getTrue(calledHomoMinMask)+" (highHet/highHomo: "+
-                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovHets)+"/"+
-                    ImputationAccuracy.getTrue(calledHomoMinMask, highCovInbreds)+")"+"\n"+
-                    "calledMissing"+ImputationAccuracy.getTrue(calledMissingMask)+"\n\n"+
-                    "Number of sequences in each group:\nTotalNumSequences: "+known.getSequenceCount()+"\nhighCovTaxa"+ImputationAccuracy.getTrue(highCovTaxa)+"\n"+
-                    "highCovInbred"+ImputationAccuracy.getTrue(highCovInbreds)+"\n"+
-                    "highCovHets"+ImputationAccuracy.getTrue(highCovHets)+"\n"+
-                    "inbred"+ImputationAccuracy.getTrue(inbred)+"\n"+
-                    "outbred"+ImputationAccuracy.getTrue(outbred)+"\n");
-            outStream.writeBytes("\t\t\t\t\t\t\t\t\t\tcalledHomozygote\t\t\t\tcalledHeterozygote\t\t\t\t\tcalledMissing\n\tSitesConsidered\tSitesCalledHomo\tSiteCalledHomoMaj\tSitesCalledHomoMin\tSitesCalledHet\tSitesCalledMissing\thomoMajCorrect\thomoMinCorrect\thomoHetOneCorrect\thomoIncorrectHomo\thomoIncorrectHet"
-                  + "\thomoMissing\thetCorrect\thetOneCorrect\thetIncorrectHomo\thetIncorrectHet\thetMissing\tmissingImputedHomo"
-                  + "\tmissingImputedHet\tmissingMissing\tOverallError(halfHetsHalfCorrect)");
+            
+            outStream.writeBytes("\t\t\t\t\t\t\t\t\t\tcalledHomozygote\t\t\t\tcalledHeterozygote\t\t\t\t\tcalledMissing\n\tSitesConsidered\tSitesCalledHomo\tSiteCalledHomoMaj\tSitesCalledHomoMin\tSitesCalledHet\tSitesCalledMissing"
+                    + "\thomoMajCorrect\thomoMinCorrect\thomoHetOneCorrect\thomoIncorrectHomo\thomoIncorrectHet"
+                    + "\thomoMissing\thetCorrect\thetOneCorrect\thetIncorrectHomo\thetIncorrectHet\thetMissing\tmissingImputedHomo"
+                    + "\tmissingImputedHet\tmissingMissing\tOverallError(halfHetsHalfCorrect)");
             outStream.writeBytes("\nallSites\t"+allSites[0]+"\t"+allSites[1]+"\t"+allSites[2]+"\t"+allSites[3]+"\t"+allSites[4]+"\t"+allSites[5]);
             outStream.writeBytes("\t"+all[0]/allSites[2]+"\t"+all[1]/allSites[3]);
             for (int i= 2;i<6;i++){outStream.writeBytes("\t"+all[i]/allSites[1]);}
             for (int i= 6;i<11;i++){outStream.writeBytes("\t"+all[i]/allSites[4]);}
-            for (int i= 11;i<15;i++){outStream.writeBytes("\t"+all[i]/allSites[5]);}
+            for (int i= 11;i<14;i++){outStream.writeBytes("\t"+all[i]/allSites[5]);}
+            outStream.writeBytes("\t"+all[14]/(allSites[1]+allSites[4]));
             outStream.writeBytes("\nallInbred\t"+allInbredSites[0]+"\t"+allInbredSites[1]+"\t"+allInbredSites[2]+"\t"+allInbredSites[3]+"\t"+allInbredSites[4]+"\t"+allInbredSites[5]);
             outStream.writeBytes("\t"+allInbred[0]/allInbredSites[2]+"\t"+allInbred[1]/allInbredSites[3]);
             for (int i= 2;i<6;i++){outStream.writeBytes("\t"+allInbred[i]/allInbredSites[1]);}
             for (int i= 6;i<11;i++){outStream.writeBytes("\t"+allInbred[i]/allInbredSites[4]);}
-            for (int i= 11;i<15;i++){outStream.writeBytes("\t"+allInbred[i]/allInbredSites[5]);}
+            for (int i= 11;i<14;i++){outStream.writeBytes("\t"+allInbred[i]/allInbredSites[5]);}
+            outStream.writeBytes("\t"+allInbred[14]/(allInbredSites[1]+allInbredSites[4]));
             outStream.writeBytes("\nhighCovInbred\t"+highCovInbredSites[0]+"\t"+highCovInbredSites[1]+"\t"+highCovInbredSites[2]+"\t"+highCovInbredSites[3]+"\t"+highCovInbredSites[4]+"\t"+highCovInbredSites[5]);
             outStream.writeBytes("\t"+highCovInbred[0]/highCovInbredSites[2]+"\t"+highCovInbred[1]/highCovInbredSites[3]);
             for (int i= 2;i<6;i++){outStream.writeBytes("\t"+highCovInbred[i]/highCovInbredSites[1]);}
             for (int i= 6;i<11;i++){outStream.writeBytes("\t"+highCovInbred[i]/highCovInbredSites[4]);}
-            for (int i= 11;i<15;i++){outStream.writeBytes("\t"+highCovInbred[i]/highCovInbredSites[5]);}
+            for (int i= 11;i<14;i++){outStream.writeBytes("\t"+highCovInbred[i]/highCovInbredSites[5]);}
+            outStream.writeBytes("\t"+highCovInbred[14]/(highCovInbredSites[1]+highCovInbredSites[4]));
             outStream.writeBytes("\nallOutbred\t"+allOutbredSites[0]+"\t"+allOutbredSites[1]+"\t"+allOutbredSites[2]+"\t"+allOutbredSites[3]+"\t"+allOutbredSites[4]+"\t"+allOutbredSites[5]);
             outStream.writeBytes("\t"+allOutbred[0]/allOutbredSites[2]+"\t"+allOutbred[1]/allOutbredSites[3]);
             for (int i= 2;i<6;i++){outStream.writeBytes("\t"+allOutbred[i]/allOutbredSites[1]);}
             for (int i= 6;i<11;i++){outStream.writeBytes("\t"+allOutbred[i]/allOutbredSites[4]);}
-            for (int i= 11;i<15;i++){outStream.writeBytes("\t"+allOutbred[i]/allOutbredSites[5]);}
+            for (int i= 11;i<14;i++){outStream.writeBytes("\t"+allOutbred[i]/allOutbredSites[5]);}
+            outStream.writeBytes("\t"+allOutbred[14]/(allOutbredSites[1]+allOutbredSites[4]));
             outStream.writeBytes("\nhighCovOutbred\t"+highCovOutbredSites[0]+"\t"+highCovOutbredSites[1]+"\t"+highCovOutbredSites[2]+"\t"+highCovOutbredSites[3]+"\t"+highCovOutbredSites[4]+"\t"+highCovOutbredSites[5]);
             outStream.writeBytes("\t"+highCovOutbred[0]/highCovOutbredSites[2]+"\t"+highCovOutbred[1]/highCovOutbredSites[3]);
             for (int i= 2;i<6;i++){outStream.writeBytes("\t"+highCovOutbred[i]/highCovOutbredSites[1]);}
             for (int i= 6;i<11;i++){outStream.writeBytes("\t"+highCovOutbred[i]/highCovOutbredSites[4]);}
-            for (int i= 11;i<15;i++){outStream.writeBytes("\t"+highCovOutbred[i]/highCovOutbredSites[5]);}
+            for (int i= 11;i<14;i++){outStream.writeBytes("\t"+highCovOutbred[i]/highCovOutbredSites[5]);}
+            outStream.writeBytes("\t"+highCovOutbred[14]/(highCovOutbredSites[1]+highCovOutbredSites[4]));
             outStream.close();
        }
         
@@ -382,15 +422,16 @@ public class ImputationAccuracy {
     }
     
     public static void main(String[] args) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
         
         //make a mask
 //        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //        String inFile= "SEED_12S_GBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1RndSample1000";
 //        MaskFileSample(inFile,true,300);
         
-        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-        MaskFile55k("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1", true,
-                "RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1", true);
+//        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+//        MaskFile55k("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2", true,
+//                "RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1", true);
         
         //run accuracy
 //        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
@@ -399,8 +440,15 @@ public class ImputationAccuracy {
 ////        ImputationAccuracy.makeMasks(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt", true, null), 300, .6, .02, .2);
 //        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+knownFileName+".hmp.txt.gz", null), 
 //                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt.gz", null), null, false, 300,.6,.01,.2,imputedFileName+"Accuracy.6.txt");
-//                ImportUtils.readFromHapmap(dir+imputedFileName+".hmp.txt", true, null), 300, .6, .02, .2, imputedFileName);
         
+        //run accuracy for 55k
+//        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+//        ImputationA/run accuracy for 55k
+        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+        ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
+                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.hmp.txt",null),
+                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2.hmp.txt.gz",null),
+                    true, -1, .6, .005, .2, "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.Accuracy55k.txt");
         
 //        //Ed's minorWindowViterbiImputation
 //        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";

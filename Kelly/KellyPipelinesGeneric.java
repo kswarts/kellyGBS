@@ -15,6 +15,7 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxa;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaUtils;
+import net.maizegenetics.pal.alignment.BitAlignmentHDF5;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
@@ -96,7 +97,7 @@ public class KellyPipelinesGeneric {
    public static void runMinorWindowViterbiImputationPlugin() {
 //       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        String dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2";
        String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz";
        
        String[] minMnCnt= {"15","20","25","30"};
@@ -110,7 +111,7 @@ public class KellyPipelinesGeneric {
             String[] testArgs = new String[] {
                  "-hmp",   dir+base+"_masked55k.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
-                 "-o",     dir+base+out+".imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-o",     dir+base+out, //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
      //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
      //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-sC",    "10",  //Start chromosome
@@ -127,16 +128,16 @@ public class KellyPipelinesGeneric {
             MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
             plugin.setParameters(args);
             plugin.performFunction(null);
-            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.mhmp.h5");
-            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
+//            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");
+//            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
             //for 1:300 internal mask
 //            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
 //                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
             //for mask against 55k
-            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz",null),
-                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz",null),
-                    ImportUtils.readFromHapmap(dir+"SNP55K_maize282_AGPv2_20100513_1.chr10.hmp.txt.gz",null),
-                    true, -1, .6, .01, .2, base+"Accuracy55k.txt");
+            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
+                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt",null),
+                    ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz",null),
+                    true, -1, .6, .01, .2, dir+base+out+".Accuracy55k.txt");
                }
            }
        }
