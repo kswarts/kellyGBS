@@ -9,6 +9,7 @@ package Kelly;
 
 import net.maizegenetics.gbs.pipeline.*;
 import java.io.File;
+import net.maizegenetics.baseplugins.ExtractHapmapSubsetPlugin;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
 import net.maizegenetics.gbs.tagdist.TagCounts;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa;
@@ -28,11 +29,13 @@ import net.maizegenetics.prefs.TasselPrefs;
  * @author jcg233
  */
 public class KellyPipelinesGeneric {
-    public static String dir= "//home/local/MAIZE/kls283";
+//   public static String dir= "//home/local/MAIZE/kls283";
+   public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
        TasselPrefs.putAlignmentRetainRareAlleles(false);
 //       runFindMergeHaplotypesPlugin();
        runMinorWindowViterbiImputationPlugin();
+       runExtractHapmapSubsetPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
 //        convertBinaryTBTToText();
@@ -96,20 +99,23 @@ public class KellyPipelinesGeneric {
    
    public static void runMinorWindowViterbiImputationPlugin() {
 //       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2";
-       String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_s+.hmp.txt.gz";
+       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
+       String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_sX.hmp.txt.gz";
        
-       String[] minMnCnt= {"15","20","25","30"};
-       String[] mxInbErr= {".01",".02",".03",".04",".05"};
-       String[] mxHybErr= {".003",".004",".005",".008",".01"};
+//       String[] minMnCnt= {"15","20","25","30"};
+//       String[] mxInbErr= {".01",".02",".03",".04",".05"};
+//       String[] mxHybErr= {".003",".004",".005",".008",".01"};
+       String[] minMnCnt= {"20"};
+       String[] mxInbErr= {".01"};
+       String[] mxHybErr= {".003"};
        
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= "_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
+            String out= "_masked_HomoSegBlock200HetWithExtras8k.minMtCntBASELINE"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
             String[] testArgs = new String[] {
-                 "-hmp",   dir+base+"_masked55k.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-hmp",   dir+base+"_masked.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
                  "-o",     dir+base+out, //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
      //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
@@ -122,7 +128,7 @@ public class KellyPipelinesGeneric {
      //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
      //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
      //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
-                 "-mnTestSite",    "50",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
+                 "-mnTestSite",    "20",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
             };
             String[] args = testArgs;
             MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
@@ -131,17 +137,36 @@ public class KellyPipelinesGeneric {
 //            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");
 //            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
             //for 1:300 internal mask
-//            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
-//                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt.gz", null),null, false, 300,.6,.01,.2,base+"Accuracy.txt");
+            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
+                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt", null),null, false, 300,.6,.01,.2,dir+base+out+"Accuracy.txt");
             //for mask against 55k
-            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
-                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt",null),
-                    ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz",null),
-                    true, -1, .6, .01, .2, dir+base+out+".Accuracy55k.txt");
+//            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
+//                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt",null),
+//                    ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz",null),
+//                    true, -1, .6, .01, .2, dir+base+out+".Accuracy55k.txt");
                }
            }
        }
    }
+   
+   public static void runExtractHapmapSubsetPlugin() {
+        String baseDir = "/Volumes/nextgen/Zea/build20120701/06_HapMap/RC2/04_BPECFilteredSNPs/";
+        String outDir =  "/Users/jcg233/Documents/GBS/ShilpaNIL28FMJuly2012BuildRC2BPEC/";
+//        
+        baseDir = "/Users/jcg233/Documents/GBS/20120701BuildRC2-1BPEC/";
+        outDir =  "/Users/jcg233/Documents/GBS/ZakFMJuly2012BuildRC2BPEC/";
+        for (int chr=5; chr<11; chr++) {
+            String[] args = new String[]{
+                "-h", baseDir+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_RC-2.1_chr"+chr+".hmp.txt.gz",
+                "-o", outDir+"ZakKRNCulmFMHighCovBC2S3July2012BuildRC2-1BPEC_chr"+chr+".hmp.txt.gz",
+                "-p", outDir+"ZakKRNCulmFMHighCovBC2S3Samples01072012Build.txt",
+                "-a", "2" // at least 2 "alleles" (actually, genotypes) = polymorphic
+            };
+            ExtractHapmapSubsetPlugin plugin = new ExtractHapmapSubsetPlugin(null);
+            plugin.setParameters(args);
+            plugin.performFunction(null);
+        }
+    }
    
    public static void convertTextTagCountsToBinary() {
        String textTagCountsFileS =   "C:/Users/jcg233/Documents/Bioinformatics/NextGen/HapMapV2/test_RandomPairedEndToTBT/FakeTagCounts.txt";
