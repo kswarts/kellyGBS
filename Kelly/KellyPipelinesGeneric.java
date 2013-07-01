@@ -150,16 +150,17 @@ public class KellyPipelinesGeneric {
    }
    
    public static void runExtractHapmapSubsetPlugin() {
-        String baseDir = "/Volumes/nextgen/Zea/build20120701/06_HapMap/RC2/04_BPECFilteredSNPs/";
-        String outDir =  "/Users/jcg233/Documents/GBS/ShilpaNIL28FMJuly2012BuildRC2BPEC/";
-//        
-        baseDir = "/Users/jcg233/Documents/GBS/20120701BuildRC2-1BPEC/";
-        outDir =  "/Users/jcg233/Documents/GBS/ZakFMJuly2012BuildRC2BPEC/";
+        String dir = "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+        String inHDF5 =  "/Users/jcg233/Documents/GBS/ShilpaNIL28FMJuly2012BuildRC2BPEC/";
+        
+        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+inHDF5+"hmp.h5");
+        ExportUtils.writeToHapmap(mnah5, true, dir+inHDF5+".hmp.txt.gz", '\t', null);
+        
         for (int chr=5; chr<11; chr++) {
             String[] args = new String[]{
-                "-h", baseDir+"AllTaxa_BPEC_AllZea_GBS_Build_July_2012_RC-2.1_chr"+chr+".hmp.txt.gz",
-                "-o", outDir+"ZakKRNCulmFMHighCovBC2S3July2012BuildRC2-1BPEC_chr"+chr+".hmp.txt.gz",
-                "-p", outDir+"ZakKRNCulmFMHighCovBC2S3Samples01072012Build.txt",
+                "-h", dir+inHDF5+".hmp.txt.gz",
+                "-o", dir+"ZakKRNCulmFMHighCovBC2S3July2012BuildRC2-1BPEC_chr"+chr+".hmp.txt.gz",
+                "-p", dir+"ZakKRNCulmFMHighCovBC2S3Samples01072012Build.txt",
                 "-a", "2" // at least 2 "alleles" (actually, genotypes) = polymorphic
             };
             ExtractHapmapSubsetPlugin plugin = new ExtractHapmapSubsetPlugin(null);
