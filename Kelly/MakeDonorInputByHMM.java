@@ -40,10 +40,10 @@ public class MakeDonorInputByHMM {
                 int obs= mnah5.isHeterozygous(taxon, site)==true?1:0;
                 double currRD= getReadDepthForMinMaj(mnah5.getDepthForAlleles(taxon, site),
                         getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site)));
-                double currPQ= 2*mnah5.getMajorAlleleFrequency(site)*mnah5.getMinorAlleleFrequency(site);
+                double currPQ= 2*mnah5.getMajorAlleleFrequency(site)*(mnah5.getMinorAlleleFrequency(site)==0?.001:mnah5.getMinorAlleleFrequency(site));
                 emiss= new double[][] {//initialize new emission matrix
                     {.999,.001},//homo {obsHomo,obsHet}
-                    {currRD>1?((1-currPQ*currPQ*Math.pow(.5,currRD))/(currPQ*Math.pow(.5,currRD))):1,
+                    {currRD>1?(((1-currPQ)*currPQ*Math.pow(.5,currRD))/(currPQ*Math.pow(.5,currRD))):1,
                         currRD>1?((currPQ*currPQ*(1-Math.pow(.5,currRD)))/(currPQ*(1-Math.pow(.5,currRD)))):0}//het {obsHomo,obsHet}
                 };
                 if (probTrueHomo==-1) { //initialize HMM with HW expected allele freq
@@ -63,12 +63,6 @@ public class MakeDonorInputByHMM {
         }
         mnah5.clean();
         ExportUtils.writeToHDF5(mnah5, dir+inFileRoot+"inbredByHMM.hmp.h5");
-    }
-    
-    private static void setToMissing(MutableNucleotideAlignmentHDF5 mnah5, int firstSite, int lastSite) {
-        for (int site = firstSite; site < lastSite+1; site++) {
-            mnah5.setBase(site, site, diploidN);
-        }
     }
     
     private static int[] getIndexForMinMaj(byte maj, byte min) {
@@ -97,7 +91,7 @@ public class MakeDonorInputByHMM {
     
     public static void main(String[] args) {
         dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        String fileName= "AllZeaGBSv27";
-        newHomoSegDonorPrep(fileName,.05,.25);
+        String fileName= "AllZeaGBS_v2.7_SeqToGenos_part14";
+        newHomoSegDonorPrep(fileName,.025,.25);
     }
 }
