@@ -7,13 +7,7 @@ package Kelly;
 
 
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,14 +20,18 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByteHDF5TagGroups;
 import net.maizegenetics.gbs.util.BaseEncoder;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
+import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
+import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.commons.lang.ArrayUtils;
@@ -562,6 +560,76 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(mna, true, posToCheckFile+"_goodLD.hmp.txt.gz", '\t', null);
    }
    
+   //takes taxa from inFile and sites from refFile. Designed to compare 55k
+   public static void CheckSitesForIdentityByPosition(String inFile, boolean gz, String refFile, boolean refGz, double siteThreshold, double taxonThreshold) {
+       String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+       
+       String inRefFileName= (refGz==true)?dir+refFile+".hmp.txt.gz":dir+refFile+".hmp.txt";
+       Alignment ref= ImportUtils.readFromHapmap(inRefFileName, null);
+       MutableNucleotideAlignment mnaRef= MutableNucleotideAlignment.getInstance(ref);
+       
+       int[] refPos= ref.getPhysicalPositions();
+       int[] matchTaxon= new int[a.getSequenceCount()];//holds the index of corresponding taxon in ref
+       String[] refNames= new String[ref.getSequenceCount()];
+       for (int taxon = 0; taxon < refNames.length; taxon++) {
+           refNames[taxon]= ref.getIdGroup().getIdentifier(taxon).getNameLevel(0);
+       }      
+       for (int taxon = 0; taxon < matchTaxon.length; taxon++) {
+           String unkName= a.getIdGroup().getIdentifier(taxon).getNameLevel(0);
+           matchTaxon[taxon]= Arrays.binarySearch(refNames, unkName);
+       }
+       double[] badSites= new double[refPos.length];
+       double[] halfSites= new double[refPos.length];
+       double[] testedSites= new double[refPos.length];
+       double[] badTaxa= new double[a.getSequenceCount()];
+       double[] halfTaxa= new double[a.getSequenceCount()];
+       double[] testedTaxa= new double[a.getSequenceCount()];
+       for (int site= 0;site<a.getSiteCount();site++) {
+           int refIndex= Arrays.binarySearch(refPos, a.getPositionInLocus(site));
+           if (refIndex<0) continue;
+           int refSite= ref.getSiteOfPhysicalPosition(a.getPositionInLocus(site), null);
+           for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+               byte inBase= a.getBase(taxon, site);
+               byte refBase= ref.getBase(matchTaxon[taxon], refSite);
+               byte[] inBaseArray= a.getBaseArray(taxon, site);
+               byte[] refBaseArray= ref.getBaseArray(matchTaxon[taxon], refSite);
+               if (inBase==diploidN||refBase==diploidN) continue;
+               testedSites[refIndex]+=1.0;
+               testedTaxa[taxon]+=1.0;
+               if (AlignmentUtils.isEqual(inBaseArray, refBaseArray)==true) continue;
+               if (a.isHeterozygous(taxon, site)==true||ref.isHeterozygous(matchTaxon[taxon], refSite)==true) {
+                   if (inBaseArray[0]==refBaseArray[0]||inBaseArray[1]==refBaseArray[0]||inBaseArray[0]==refBaseArray[1]||
+                        inBaseArray[1]==refBaseArray[1]) {
+                       halfSites[refIndex]+=1.0;
+                       halfTaxa[taxon]+=1.0;
+                   }
+               }
+               else {
+                   badSites[refIndex]+=1.0;
+                   badTaxa[taxon]+=1.0;
+               }
+           }
+           if (badSites[refIndex]/testedSites[refIndex]>siteThreshold) mnaRef.clearSiteForRemoval(refIndex);
+           System.out.println(a.getSNPID(site)+"\t"+badSites[refIndex]/testedSites[refIndex]
+                   +"\t"+halfSites[refIndex]/testedSites[refIndex]);
+       }
+       boolean[] badIDs= new boolean[a.getSequenceCount()];
+       for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+           System.out.println(a.getTaxaName(taxon)+"\t"+badTaxa[taxon]/testedTaxa[taxon]
+                   +"\t"+halfTaxa[taxon]/testedTaxa[taxon]);
+           if (badTaxa[taxon]/testedTaxa[taxon]>taxonThreshold) badIDs[taxon]= true;
+           
+       }
+       IdGroup removeIDs= IdGroupUtils.idGroupSubset(a.getIdGroup(), badIDs);
+       Alignment goodTaxa= FilterAlignment.getInstanceRemoveIDs(a, removeIDs);
+       System.out.println("Write "+goodTaxa.getSequenceCount()+" taxa to file");
+       ExportUtils.writeToHapmap(goodTaxa, true, dir+inFile+"_cleanTaxa.hmp.txt.gz", '\t', null);
+       
+       mnaRef.clean();
+       System.out.println("Write "+mnaRef.getSiteCount()+" sites to file");
+       ExportUtils.writeToHapmap(mnaRef, true, dir+refFile+"_cleanSites.hmp.txt.gz", '\t', null);
+   }
    public static void SitesWithSameNamesOrPositions(String inFile, boolean gz) {
        String inHapMapFileName= (gz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
        Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
@@ -652,6 +720,34 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
    }
    
+   public static void subsetFromTxt(String h5Root, String outFileRoot, String taxaNames, boolean h5) {
+       MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+h5Root+"hmp.h5");
+       BufferedReader fileIn;
+       String[] names= new String[taxaNames.length()];
+       SimpleIdGroup keep= new SimpleIdGroup(taxaNames.length());
+       IdGroup h5IDs= mnah5.getIdGroup();
+        try {
+            fileIn = Utils.getBufferedReader(dir+taxaNames, 1000000);
+            
+            for (int i = 0; i < taxaNames.length(); i++) {
+                names[i] = fileIn.readLine();
+            }
+        }
+        catch (Exception e) {
+        }
+        int nextIndex= 0;
+        for (int h5Taxa = 0; h5Taxa < h5IDs.getIdCount(); h5Taxa++) {
+            String currTaxon= h5IDs.getIdentifier(h5Taxa).getName();
+            if (Arrays.binarySearch(names, currTaxon)>-1) {
+               keep.setIdentifier(nextIndex, h5IDs.getIdentifier(h5Taxa));
+                nextIndex++;
+            }
+        }
+        Alignment subset= FilterAlignment.getInstance(mnah5, keep);
+        if (h5==true) ExportUtils.writeToHDF5(subset, dir+outFileRoot+"hmp.h5");
+        else ExportUtils.writeToHapmap(subset, true, dir+outFileRoot+"hmp.txt.gz", '\t', null);
+   }
+   
    //from Alberto to make a beagle 3 file
       public static String saveDelimitedAlignment(Alignment theAlignment, String delimit, String saveFile) {
 
@@ -702,9 +798,12 @@ public class KellyUtils {
         }
 
     }
+      
+    
 
    
    public static void main (String args[]) {
+       TasselPrefs.putAlignmentRetainRareAlleles(false);
              
 //       //args for FilterMergedTBT
 //       int minSharedTaxa= 2;
@@ -773,8 +872,10 @@ public class KellyUtils {
 //       SitesWithSameNamesOrPositions("SNP55K_maize282_AGPv2_20100513_1",false);
 //       
        dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       CheckSitesForLD("RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,
-               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
+//       CheckSitesForLD("RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,
+//               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
+       
+       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
 
    }
 }
