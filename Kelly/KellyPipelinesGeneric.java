@@ -34,7 +34,7 @@ public class KellyPipelinesGeneric {
    public static void main(String[] args) {
        TasselPrefs.putAlignmentRetainRareAlleles(false);
 //       runFindMergeHaplotypesPlugin();
-       runMinorWindowViterbiImputationPlugin();
+//       runMinorWindowViterbiImputationPlugin();
        runExtractHapmapSubsetPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
@@ -137,7 +137,7 @@ public class KellyPipelinesGeneric {
 //            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");
 //            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
             //for 1:300 internal mask
-            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
+            ImputationAccuracy.runTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
                 ImportUtils.readFromHapmap(dir+base+out+".hmp.txt", null),null, false, 300,.6,.01,.2,dir+base+out+"Accuracy.txt");
             //for mask against 55k
 //            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
@@ -150,23 +150,21 @@ public class KellyPipelinesGeneric {
    }
    
    public static void runExtractHapmapSubsetPlugin() {
-        String dir = "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-        String inHDF5 =  "/Users/jcg233/Documents/GBS/ShilpaNIL28FMJuly2012BuildRC2BPEC/";
+        String dir = dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        String inHDF5 =  "AllZeaGBSv27";
         
-        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+inHDF5+"hmp.h5");
+        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+inHDF5+".hmp.h5");
         ExportUtils.writeToHapmap(mnah5, true, dir+inHDF5+".hmp.txt.gz", '\t', null);
         
-        for (int chr=5; chr<11; chr++) {
             String[] args = new String[]{
                 "-h", dir+inHDF5+".hmp.txt.gz",
-                "-o", dir+"ZakKRNCulmFMHighCovBC2S3July2012BuildRC2-1BPEC_chr"+chr+".hmp.txt.gz",
-                "-p", dir+"ZakKRNCulmFMHighCovBC2S3Samples01072012Build.txt",
+                "-o", dir+"AmesGBSv27.hmp.txt.gz",
+                "-p", dir+"Ames(no EP or GEM).txt",
                 "-a", "2" // at least 2 "alleles" (actually, genotypes) = polymorphic
             };
             ExtractHapmapSubsetPlugin plugin = new ExtractHapmapSubsetPlugin(null);
             plugin.setParameters(args);
             plugin.performFunction(null);
-        }
     }
    
    public static void convertTextTagCountsToBinary() {
