@@ -720,16 +720,16 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
    }
    
-   public static void subsetFromTxt(String h5Root, String outFileRoot, String taxaNames, boolean h5) {
-       MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+h5Root+"hmp.h5");
+   public static void subsetFromTxt(String h5Root, String taxaNamesRoot, boolean h5) {
+       MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+h5Root+".hmp.h5");
        BufferedReader fileIn;
-       String[] names= new String[taxaNames.length()];
-       SimpleIdGroup keep= new SimpleIdGroup(taxaNames.length());
+       String[] names= new String[taxaNamesRoot.length()];
+       SimpleIdGroup keep= new SimpleIdGroup(taxaNamesRoot.length());
        IdGroup h5IDs= mnah5.getIdGroup();
         try {
-            fileIn = Utils.getBufferedReader(dir+taxaNames, 1000000);
+            fileIn = Utils.getBufferedReader(dir+taxaNamesRoot+".txt", 1000000);
             
-            for (int i = 0; i < taxaNames.length(); i++) {
+            for (int i = 0; i < taxaNamesRoot.length(); i++) {
                 names[i] = fileIn.readLine();
             }
         }
@@ -744,8 +744,8 @@ public class KellyUtils {
             }
         }
         Alignment subset= FilterAlignment.getInstance(mnah5, keep);
-        if (h5==true) ExportUtils.writeToHDF5(subset, dir+outFileRoot+"hmp.h5");
-        else ExportUtils.writeToHapmap(subset, true, dir+outFileRoot+"hmp.txt.gz", '\t', null);
+        if (h5==true) ExportUtils.writeToHDF5(subset, dir+h5Root+taxaNamesRoot+".hmp.h5");
+        else ExportUtils.writeToHapmap(subset, true, dir+h5Root+taxaNamesRoot+".hmp.txt.gz", '\t', null);
    }
    
    //from Alberto to make a beagle 3 file
@@ -871,11 +871,12 @@ public class KellyUtils {
 //       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
 //       SitesWithSameNamesOrPositions("SNP55K_maize282_AGPv2_20100513_1",false);
 //       
-       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+//       dir= "/Users/kelly/Documents/GBS/Imputation/SmallFiles/";
 //       CheckSitesForLD("RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,
 //               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
        
-       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
-
+//       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation";
+       subsetFromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false);
    }
 }
