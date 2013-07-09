@@ -11,7 +11,12 @@ import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Scanner;
+import java.util.Set;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
 import net.maizegenetics.gbs.tagdist.TagCountMutable;
 import net.maizegenetics.gbs.tagdist.TagCounts;
@@ -29,6 +34,7 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
+import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
 import net.maizegenetics.prefs.TasselPrefs;
@@ -720,32 +726,46 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(align, true, outHapMapFileName, '\t', null);
    }
    
-   public static void subsetFromTxt(String h5Root, String taxaNamesRoot, boolean h5) {
-       MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+h5Root+".hmp.h5");
-       BufferedReader fileIn;
-       String[] names= new String[taxaNamesRoot.length()];
-       SimpleIdGroup keep= new SimpleIdGroup(taxaNamesRoot.length());
+   public static void subsetHDF5FromTxt(String inFileRoot, String taxaNamesRoot, boolean permissive, boolean h5) {
+       MutableNucleotideAlignmentHDF5 mnah5= (MutableNucleotideAlignmentHDF5)ImportUtils.readGuessFormat(dir+inFileRoot+".hmp.h5", false);
+       Set<String> names= new HashSet<String>();
        IdGroup h5IDs= mnah5.getIdGroup();
+       if (permissive==true) System.out.println("permissive mode on (matches only the first part of the name before the first colon - will select duplicate samples of taxa)");
         try {
-            fileIn = Utils.getBufferedReader(dir+taxaNamesRoot+".txt", 1000000);
-            
-            for (int i = 0; i < taxaNamesRoot.length(); i++) {
-                names[i] = fileIn.readLine();
+            FileInputStream fis= new FileInputStream(dir+taxaNamesRoot+".txt");
+            Scanner scanner= new Scanner(fis);
+            while (scanner.hasNextLine()) {
+                String next= scanner.nextLine();
+                if (permissive==true) names.add(next.substring(0, next.indexOf(":")));
+                else names.add(next);
             }
+            scanner.close();
+            fis.close();
         }
         catch (Exception e) {
         }
-        int nextIndex= 0;
+        ArrayList<String> sortNames= new ArrayList<String>();
+        sortNames.addAll(names);
+        Collections.sort(sortNames);
+        String[] nameArray= Arrays.copyOf(sortNames.toArray(),sortNames.size(),String[].class);
+        ArrayList<Identifier> keep= new ArrayList<Identifier>();
         for (int h5Taxa = 0; h5Taxa < h5IDs.getIdCount(); h5Taxa++) {
-            String currTaxon= h5IDs.getIdentifier(h5Taxa).getName();
-            if (Arrays.binarySearch(names, currTaxon)>-1) {
-               keep.setIdentifier(nextIndex, h5IDs.getIdentifier(h5Taxa));
-                nextIndex++;
-            }
+            String currTaxon= permissive==true?h5IDs.getIdentifier(h5Taxa).getName():h5IDs.getIdentifier(h5Taxa).getFullName();
+            if (Arrays.binarySearch(nameArray, currTaxon)>-1) keep.add(h5IDs.getIdentifier(h5Taxa));
         }
-        Alignment subset= FilterAlignment.getInstance(mnah5, keep);
-        if (h5==true) ExportUtils.writeToHDF5(subset, dir+h5Root+taxaNamesRoot+".hmp.h5");
-        else ExportUtils.writeToHapmap(subset, true, dir+h5Root+taxaNamesRoot+".hmp.txt.gz", '\t', null);
+        SimpleIdGroup subIDs= new SimpleIdGroup(keep);
+        Alignment subset= FilterAlignment.getInstance(mnah5, subIDs);
+        System.out.println("subsetting "+subset.getSequenceCount()+" taxa from "+h5IDs.getIdCount()+" taxa based on "+names.size()+" unique names");
+        if (h5==true) {
+            if (permissive==true) ExportUtils.writeToHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5");
+            else ExportUtils.writeToHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5");
+            System.out.println("writing to hdf5");
+        }
+        else {
+            if (permissive==true) ExportUtils.writeToHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5");
+            else ExportUtils.writeToHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5");
+            System.out.println("writing to hapmap");
+        }
    }
    
    //from Alberto to make a beagle 3 file
@@ -876,7 +896,7 @@ public class KellyUtils {
 //               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
        
 //       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation";
-       subsetFromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false);
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       subsetHDF5FromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false,false);
    }
 }
