@@ -31,7 +31,7 @@ public class TestsOfSelection {
     static int[][] codedAlignment;
     
     public static void SetReference(String file, String refTaxon,String chrNum) {
-        alignment= ImportUtils.readFromHapmap(file,chrNum);
+        alignment= ImportUtils.readGuessFormat(file, false);
         System.out.println("fdsf");
         System.out.println("Number of sites: "+alignment.getSiteCount()+"/n"+"Number of loci: "+alignment.getSiteCount());
         for (int index= 0;index < alignment.getSequenceCount();index++) {
@@ -47,7 +47,7 @@ public class TestsOfSelection {
     }
     
     public static void RemoveSitesMissingInOutgroup() {
-        MutableSingleEncodeAlignment mna= new MutableSingleEncodeAlignment(alignment,alignment.getSequenceCount(),alignment.getSiteCount());
+        MutableSingleEncodeAlignment mna= MutableNucleotideAlignment.getInstance(alignment,alignment.getSequenceCount(),alignment.getSiteCount());
         for (int i= 0;i < mna.getNumLoci();i++) {
             if (mna.getBase(outSequence, i) == 'N') mna.removeSite(i);
             }

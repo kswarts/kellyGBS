@@ -443,11 +443,19 @@ public class KellyUtils {
         for (int s= 0; s<a.getSiteCount(); s++) {
             if (a.isPolymorphic(s) == true) subSite.add(s);
         }
-        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[LearnTreesImputation.NumPolymorphicSites(a)]));
+        int[] keepSite= ArrayUtils.toPrimitive(subSite.toArray(new Integer[NumPolymorphicSites(a)]));
         Alignment newAlign= FilterAlignment.getInstance(a, keepSite);
         System.out.println("Final num of taxa: "+newAlign.getSequenceCount());
         System.out.println("Final num of sites: "+newAlign.getSiteCount());
         return newAlign;
+   }
+   
+   public static int NumPolymorphicSites(Alignment a) {
+        int poly= 0;
+        for (int s= 0; s<a.getSiteCount(); s++) {
+            if (a.isPolymorphic(s) == true) poly++;
+        }
+        return poly;
    }
    
    public static Alignment SubsetHapmapByTaxaCov(Alignment a, double minCov, boolean toFile, boolean filterPolymorphic) {
@@ -898,5 +906,14 @@ public class KellyUtils {
 //       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
        subsetHDF5FromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false,false);
+       
+       dir= "/Users/kelly/Documents/GBS/Imputation/";
+       String[] files= new String[2];
+       for (int part = 14; part < 15; part++) {
+           int index= 0;
+           files[index]= dir+"AllZeaGBS_v2.7_SeqToGenos_part"+part+".hmp.h5";
+           index++;
+       }
+           ExportUtils.addTaxaFromExistingByteHDF5File(files, dir+"AllZeaGBS_v2.7_SeqToGenos_combined.hmp.h5",true);
    }
 }

@@ -21,7 +21,7 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.maps.TagsOnPhysicalMap;
 import net.maizegenetics.gbs.tagdist.TagCountMutable;
-import net.maizegenetics.genome.BaseEncoder;
+import net.maizegenetics.gbs.util.BaseEncoder;
 
 /** This class contains methods for generating diversity metrics for GBS data, only using tag counts (but standardized by good, barcoded reads)
 *
@@ -44,6 +44,7 @@ public class NovelTagsInTBT {
    public static String compareFileID;
    public static String masterFileID;
 
+   
    public static void NovelTagsInTBT(){
        String inTBTFileName=        dir+"SW_landraces/mergedTBT/SW_landracesTaxaFilterMin2.tbt.byte";//input tbt file pathway
        String inMasterTagsFileName= dir+"landraceBuild/build20120110MergedTags.cnt";//input a master tag file pathway

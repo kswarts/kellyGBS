@@ -15,6 +15,7 @@ import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.pal.popgen.LinkageDisequilibrium;
@@ -210,7 +211,7 @@ public class AssignHaplotypes {
            System.out.println(e);
         }
     }
-    
+
     //focus file and full file must have the same taxa, but the sites can vary. Focus file is a subset of full with high quality sites only
     public static void findHomozygousSegments(String focusFile, boolean focusGz, String fullFile, boolean fullGz, int segSize) {
        String focusFileName= (focusGz==true)?dir+focusFile+".hmp.txt.gz":dir+focusFile+".hmp.txt";
