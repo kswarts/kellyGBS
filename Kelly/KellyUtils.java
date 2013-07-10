@@ -770,8 +770,8 @@ public class KellyUtils {
             System.out.println("writing to hdf5");
         }
         else {
-            if (permissive==true) ExportUtils.writeToHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5");
-            else ExportUtils.writeToHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5");
+            if (permissive==true) ExportUtils.writeToHapmap(subset, true, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5", '\t', null);
+            else ExportUtils.writeToHapmap(subset, true, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5", '\t', null);
             System.out.println("writing to hapmap");
         }
    }
@@ -904,14 +904,16 @@ public class KellyUtils {
 //               "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true, .5);
        
 //       CheckSitesForIdentityByPosition("RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2",true,"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1",true,.1,.1);
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       subsetHDF5FromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false,false);
-       
-       dir= "/Users/kelly/Documents/GBS/Imputation/";
-       String[] files= new String[2];
-       for (int part = 14; part < 15; part++) {
-           int index= 0;
-           files[index]= dir+"AllZeaGBS_v2.7_SeqToGenos_part"+part+".hmp.h5";
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//       subsetHDF5FromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false,false);
+//       
+//       dir= "/Users/kelly/Documents/GBS/Imputation/";
+       dir= "/home/local/MAIZE/kls283/GBS/AllZea2.7MergeWithDepth/";
+       String[] files= new String[27];
+       int index= 0;
+       for (int part = 1; part < 28; part++) {
+           if (part<10) files[index]= dir+"part0"+part+"/AllZeaGBS_v2.7_SeqToGenos_part0"+part+".hmp.h5";
+           else files[index]= dir+"part"+part+"/AllZeaGBS_v2.7_SeqToGenos_part"+part+".hmp.h5";
            index++;
        }
            ExportUtils.addTaxaFromExistingByteHDF5File(files, dir+"AllZeaGBS_v2.7_SeqToGenos_combined.hmp.h5",true);
