@@ -549,30 +549,31 @@ public class KellyUtils {
        ExportUtils.writeToHapmap(mna, true, dir+inFile+"IndelsRemoved.hmp.txt.gz", '\t', null);
    }
    
-   public static void CheckSitesForLD(String posToCheckFile, boolean posToCheckGZ, String inFile, boolean inGz, double r2cutoff) {
-       String posFileName= (posToCheckGZ==true)?dir+posToCheckFile+".hmp.txt.gz":dir+posToCheckFile+".hmp.txt";
-       Alignment siteAlign= ImportUtils.readFromHapmap(posFileName, null);
-       String inHapMapFileName= (inGz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
-       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
-       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(siteAlign);
-       int[] pos= siteAlign.getPhysicalPositions();
-       for (int sites:pos) {
-           int focus= a.getSiteOfPhysicalPosition(sites, null);
-           LinkageDisequilibrium ld= new LinkageDisequilibrium(a, 10,
-                   LinkageDisequilibrium.testDesign.SlidingWindow, focus, null, false, -1, null);
-           ld.run();
-           double[] r2= new double[18];
-           for (int site = 1; site < 10; site++) {
-               r2[site]= ld.getRSqr(focus, focus-site);
-               r2[r2.length-site]= ld.getRSqr(focus, focus+site);
-           }
-           for(double r:r2){System.out.println(r);}
-           Arrays.sort(r2);
-           if (r2[10]>r2cutoff) mna.clearSiteForRemoval(sites);
-       }
-       mna.clean();
-       ExportUtils.writeToHapmap(mna, true, posToCheckFile+"_goodLD.hmp.txt.gz", '\t', null);
-   }
+   //FIX THIS TO CONFORM TO NEW LD CODE 7/16/2013
+//   public static void CheckSitesForLD(String posToCheckFile, boolean posToCheckGZ, String inFile, boolean inGz, double r2cutoff) {
+//       String posFileName= (posToCheckGZ==true)?dir+posToCheckFile+".hmp.txt.gz":dir+posToCheckFile+".hmp.txt";
+//       Alignment siteAlign= ImportUtils.readFromHapmap(posFileName, null);
+//       String inHapMapFileName= (inGz==true)?dir+inFile+".hmp.txt.gz":dir+inFile+".hmp.txt";
+//       Alignment a= ImportUtils.readFromHapmap(inHapMapFileName, null);
+//       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(siteAlign);
+//       int[] pos= siteAlign.getPhysicalPositions();
+//       for (int sites:pos) {
+//           int focus= a.getSiteOfPhysicalPosition(sites, null);
+//           LinkageDisequilibrium ld= new LinkageDisequilibrium(a, 10,
+//                   LinkageDisequilibrium.testDesign.SlidingWindow, focus, null, false, -1, null);
+//           ld.run();
+//           double[] r2= new double[18];
+//           for (int site = 1; site < 10; site++) {
+//               r2[site]= ld.getRSqr(focus, focus-site);
+//               r2[r2.length-site]= ld.getRSqr(focus, focus+site);
+//           }
+//           for(double r:r2){System.out.println(r);}
+//           Arrays.sort(r2);
+//           if (r2[10]>r2cutoff) mna.clearSiteForRemoval(sites);
+//       }
+//       mna.clean();
+//       ExportUtils.writeToHapmap(mna, true, posToCheckFile+"_goodLD.hmp.txt.gz", '\t', null);
+//   }
    
    //takes taxa from inFile and sites from refFile. Designed to compare 55k
    public static void CheckSitesForIdentityByPosition(String inFile, boolean gz, String refFile, boolean refGz, double siteThreshold, double taxonThreshold) {
