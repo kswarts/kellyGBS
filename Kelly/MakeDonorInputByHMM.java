@@ -4,6 +4,7 @@
  */
 package Kelly;
 
+import com.google.common.math.IntMath;
 import java.io.FileInputStream;
 import java.util.*;
 import net.maizegenetics.pal.alignment.Alignment;
@@ -12,6 +13,7 @@ import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
+import net.maizegenetics.prefs.TasselPrefs;
 
 /**
  *
@@ -41,37 +43,39 @@ public class MakeDonorInputByHMM {
         MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
         System.out.println("generate mna");
         if (mnah5.getLocus(0).getChromosomeName().equalsIgnoreCase(whichChr[0])==false||mnah5.getLocus(mnah5.getSiteCount()-1).getChromosomeName().equalsIgnoreCase(whichChr[whichChr.length-1])==false) 
-            System.out.println("Chromosomes do not match between hapmap and recombination file. Sites with missing rho will be skipped");
+            System.out.println("Chromosomes do not match between hapmap and recombination file. Sites with missing rho will be set to missing");
         for (int taxon = 0; taxon < mnah5.getSequenceCount(); taxon++) {
             if (((double)mnah5.getHeterozygousCountForTaxon(taxon)/(double)mnah5.getTotalNotMissingForTaxon(taxon))<hetCutoff) continue;//if an inbred line, don't do anything
-            System.out.println("Working on taxon"+mnah5.getTaxaName(taxon));
+            System.out.println("Working on taxon "+mnah5.getTaxaName(taxon));
             double probTrueHomo= -1;
             double probTrueHet= -1;
             boolean newChr= true;
             int lastSite= 0;
+            int lastKnownHet= 0;
             for (int site = 0; site < mnah5.getSequenceCount(); site++) {
-                if (mnah5.getLocusName(site).equalsIgnoreCase(whichChr[whichChr.length-1])) continue;//skip chromosomes with no recombination information
+                if (Arrays.binarySearch(whichChr, mnah5.getLocusName(site))<0) {//set to missing sites on chromosomes with no recombination information
+                    mna.setBase(taxon, site, diploidN);
+                    continue;
+                }
                 if (mnah5.getMinorAlleleFrequency(site)==0) continue; //skip invariant sites
                 if (mnah5.getBase(taxon, site)==diploidN) continue; //skip sites with no data
-                if (mnah5.getLocus(site).getChromosomeName().equalsIgnoreCase(mnah5.getLocus(lastSite).getChromosomeName())==false) newChr= true;
+                if (mnah5.getLocus(site).getChromosomeName().equalsIgnoreCase(mnah5.getLocus(lastSite).getChromosomeName())==false) newChr= true;//reinitialize hmm for new chromosome
                 int obs= mnah5.isHeterozygous(taxon, site)==true?1:0;
                 double currRD= getReadDepthForMinMaj(mnah5.getDepthForAlleles(taxon, site),
                         getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site)));
                 double currPQ= 2*mnah5.getMajorAlleleFrequency(site)*mnah5.getMinorAlleleFrequency(site);
-//                emiss= new double[][] {//initialize new emission matrix using just read depth
-//                    {.999,.001},//homo {obsHomo,obsHet}
-//                    {currRD>1?Math.pow(.5,currRD):.999,
-//                        currRD>1?1.0-Math.pow(.5,currRD):0.001}//het {obsHomo,obsHet}
-//                };
-                emiss= new double[][] {//initialize new emission matrix using HW/RD joint probability
-                    {.999,.001},//homo {obsHomo,obsHet}
-                    {currRD>1?(((1.0-currPQ)*currPQ*Math.pow(.5,currRD))/(currPQ*Math.pow(.5,currRD))):.99999,
-                        currRD>1?((currPQ*currPQ*(1.0-Math.pow(.5,currRD)))/(currPQ*(1.0-Math.pow(.5,currRD)))):0.00001}//het {obsHomo,obsHet}
+                //initialize emission matrix using HW/RD joint probability. The probability of observing a homo/het given both haplotypes are ibd {.999,.001} 
+                //(sequencing error). The probability of observing a homo/het given 2 haplotypes present and these haplotypes vary at this particular site and rd>1
+                //{(.5^read depth * 2pq)/2pq, (1-.5^read depth) * 2pq)/2pq}. Accounts for sampling based on read depth and assumes HW proportions for frequencies
+                emiss= new double[][] {
+                    {.9999,.0001},//homo {obsHomo,obsHet}
+                    {currRD>1?(Math.pow(.5,currRD)*currPQ)/(currPQ):.99999,
+                        currRD>1?((1-Math.pow(.5,currRD))*currPQ)/(currPQ):0.00001}//het {obsHomo,obsHet}
                 };
                 if (newChr==true) { //initialize HMM with HW expected allele freq
                     probTrueHomo= (1-currPQ)*emiss[0][obs]; //the starting probabilities for each true state, given the observed state
                     probTrueHet= currPQ*emiss[1][obs];
-                    if (probTrueHet>probTrueHomo) mnah5.setBase(taxon, site, diploidN); //if true state chosen to be het, change site to missing
+                    if (probTrueHet>probTrueHomo) mna.setBase(taxon, site, diploidN); //if true state chosen to be het, change site to missing
                     lastSite= site; //this will result in strange LD for the next site if this is a het, but it only happens once and viterbi is bad here anyway
                     newChr= false;
                     continue;
@@ -88,11 +92,16 @@ public class MakeDonorInputByHMM {
 //                        {r,(1.0-r)},//homo {homo,het}
 //                        {(1.0-r),r}//het {homo,het}
 //                    };
-                    //the joint probability of recombination and inbreeding (f is made up)
-                    double noRecomb= Math.pow((1-rho.get(whichWindow[site])),(mnah5.getPositionInLocus(site)-mnah5.getPositionInLocus(lastSite)));//prob of no recombination based on rho and the physical distance between the curr and last site
-                    trans= new double[][] {
-                        {noRecomb*f,(1-noRecomb)*(1-f)},//homo {homo,het}
-                        {(1-noRecomb)*f,noRecomb*(1-f)}//het {homo,het}
+                    //the probability of recombination. could use the joint probability of recombination and inbreeding (f is made up) but already account for site frequencies in emission
+                    int dist= (mnah5.getPositionInLocus(site)-mnah5.getPositionInLocus(lastSite));
+                    double currRho= (rho.get(whichWindow[site]));
+                    //prob of no recombination based on rho (pop estimate from jeff r-i hapmap2; crossovers/gen/bp). Assume one large population with whatever coalescent jeff assumed
+                    //double noRecomb= (dist>50)?(Math.pow((1-currRho),dist))+(IntMath.binomial(dist, 2)*Math.pow(currRho, 2)*(Math.pow((1-currRho),dist-2)))+(IntMath.binomial(dist, 4)*Math.pow(currRho, 4)*(Math.pow((1-currRho),dist-4))):Math.pow((1-currRho),dist);
+                    double noRecomb= Math.pow((1-currRho), dist);
+                    if (noRecomb==0.0) noRecomb= .00000000001; //if distance very far will drive probabilities past double limit to zero
+                    trans= new double[][] {//probability of recombining and probability that recombination will bring together ibd haplotypes are assumed independant
+                        {noRecomb,(1-noRecomb)},//homo {homo,het}
+                        {(1-noRecomb),noRecomb}//het {homo,het}
                     };
                     double homoHomo= probTrueHomo*trans[0][0]*emiss[0][obs]; //path probabilities from true homo at last site to true homo at curr site
                     double homoHet= probTrueHomo*trans[0][1]*emiss[1][obs];
@@ -100,14 +109,19 @@ public class MakeDonorInputByHMM {
                     double hetHet= probTrueHet*trans[1][1]*emiss[1][obs];
                     probTrueHomo=hetHomo>homoHomo?hetHomo:homoHomo;
                     probTrueHet= hetHet>homoHet?hetHet:homoHet;
+//                    if (probTrueHomo==0||probTrueHet==0) {//probabilities can be driven to zero if below double value
+//                        if (het==true) {probTrueHomo= .49; probTrueHet= .51;}
+//                        else {probTrueHomo= .51; probTrueHet= .49;}
+//                    } 
                     lastSite= site;
+                    if (mnah5.isHeterozygous(taxon, site)==true) lastKnownHet= site;
                 }
-                //if likely in a het sequence, set to missing
+                //if likely in a het sequence, set to missing if two in a row
                 if (probTrueHet>probTrueHomo) mna.setBase(taxon, site, diploidN);
             }
         }
         mna.clean();
-        ExportUtils.writeToHapmap(mna, true, dir+inFile+"inbredByHMMWithHW.hmp.txt.gz", '\t', null);
+        ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMNew2_het"+hetCutoff);
     }
     
     private static double getLD(int taxon, int siteOne, int siteTwo) { //only use when target taxon is homozygous at both sites, assume both polymorphic
@@ -211,10 +225,11 @@ public class MakeDonorInputByHMM {
     }
     
     public static void main(String[] args) {
-//        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-        dir= "/Users/kelly/Documents/GBS/Imputation/";
-        String fileName= "AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+//        dir= "/Users/kelly/Documents/GBS/Imputation/";
+        String fileName= "AllZeaGBS_v2.7_SeqToGenos_combined11_14-17.hmp.h5";
         String recombFile= dir+"13KRho.txt";
-        newHomoSegDonorPrep(fileName,recombFile, .05, .3);
+        newHomoSegDonorPrep(fileName,recombFile, .01, .2);
     }
 }
