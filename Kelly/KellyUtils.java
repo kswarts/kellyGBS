@@ -909,14 +909,15 @@ public class KellyUtils {
 //       subsetHDF5FromTxt("AllZeaGBSv27i3b.imp","Ames(no EP or GEM)",false,false);
 //       
 //       dir= "/Users/kelly/Documents/GBS/Imputation/";
-       dir= "/home/local/MAIZE/kls283/GBS/AllZea2.7MergeWithDepth/";
+//       dir= "/home/local/MAIZE/kls283/GBS/AllZea2.7MergeWithDepth/";
+       dir= "/home/local/MAIZE/kls283/GBS/Imputation/AllZea2.7Genos/";
        String[] files= new String[27];
        int index= 0;
-       for (int part = 1; part < 28; part++) {
+       for (int part = 14; part < 28; part++) {
            if (part<10) files[index]= dir+"part0"+part+"/AllZeaGBS_v2.7_SeqToGenos_part0"+part+".hmp.h5";
            else files[index]= dir+"part"+part+"/AllZeaGBS_v2.7_SeqToGenos_part"+part+".hmp.h5";
            index++;
        }
-           ExportUtils.addTaxaFromExistingByteHDF5File(files, dir+"AllZeaGBS_v2.7_SeqToGenos_combined.hmp.h5",true);
+           ExportUtils.addTaxaFromExistingByteHDF5File(files, dir+"AllZeaGBS_v2.7_SeqToGenos_combined11_14-17.hmp.h5",true);
    }
 }

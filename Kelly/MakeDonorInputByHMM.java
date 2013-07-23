@@ -35,7 +35,7 @@ public class MakeDonorInputByHMM {
     //*Calculate joint probabilities based on 2pq for each site. Parse out the homozygous segments,*//
     //*returns the inbreds and inbred segments*//
     
-    public static void newHomoSegDonorPrep(String inFile, String recombFile, double hetCutoff, double f) {//this one only acts on LD and readDepth
+    public static void newHomoSegDonorPrep(String inFile, String recombFile, double hetCutoff, double f, boolean h5) {//this one only acts on LD and readDepth
         mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+inFile);
         System.out.println("read in h5 file");
         readRecombinationFromTabTxt(recombFile, 10);
@@ -72,33 +72,27 @@ public class MakeDonorInputByHMM {
                     {currRD>1?(Math.pow(.5,currRD)*currPQ)/(currPQ):.99999,
                         currRD>1?((1-Math.pow(.5,currRD))*currPQ)/(currPQ):0.00001}//het {obsHomo,obsHet}
                 };
-                if (newChr==true) { //initialize HMM with HW expected allele freq
+                //the probability of recombination. could use the joint probability of recombination and inbreeding (f is made up) but too much bias to het (if use f=.2 from hapmap2)
+                int dist= (mnah5.getPositionInLocus(site)-mnah5.getPositionInLocus(lastSite));
+                double currRho= (rho.get(whichWindow[site]));
+                //prob of no recombination based on rho (pop estimate from jeff r-i hapmap2; crossovers/gen/bp). Assume one large population with whatever coalescent jeff assumed
+                //double noRecomb= (dist>50)?(Math.pow((1-currRho),dist))+(IntMath.binomial(dist, 2)*Math.pow(currRho, 2)*(Math.pow((1-currRho),dist-2)))+(IntMath.binomial(dist, 4)*Math.pow(currRho, 4)*(Math.pow((1-currRho),dist-4))):Math.pow((1-currRho),dist);
+                double noRecomb= Math.pow((1-currRho), dist);
+                if (noRecomb<.0000000001) newChr= true; //reset if sites are very far apart
+                
+                if (newChr==true&&mnah5.isHeterozygous(taxon, site)==false) { //initialize HMM with HW expected allele freq (unless obs false)
                     probTrueHomo= (1-currPQ)*emiss[0][obs]; //the starting probabilities for each true state, given the observed state
                     probTrueHet= currPQ*emiss[1][obs];
                     if (probTrueHet>probTrueHomo) mna.setBase(taxon, site, diploidN); //if true state chosen to be het, change site to missing
-                    lastSite= site; //this will result in strange LD for the next site if this is a het, but it only happens once and viterbi is bad here anyway
+                    lastSite= site;
                     newChr= false;
-                    continue;
                 }
-                
-                if (mnah5.isHeterozygous(taxon, site)==true) {
-                    probTrueHomo=0.001;
+                else if (mnah5.isHeterozygous(taxon, site)==true) {
+                    probTrueHomo= 0.001;
                     probTrueHet= .999;
                     lastSite= site;
                 }
                 else {
-//                    double r= getLD(taxon,lastSite,site);
-//                    trans= new double[][] {
-//                        {r,(1.0-r)},//homo {homo,het}
-//                        {(1.0-r),r}//het {homo,het}
-//                    };
-                    //the probability of recombination. could use the joint probability of recombination and inbreeding (f is made up) but already account for site frequencies in emission
-                    int dist= (mnah5.getPositionInLocus(site)-mnah5.getPositionInLocus(lastSite));
-                    double currRho= (rho.get(whichWindow[site]));
-                    //prob of no recombination based on rho (pop estimate from jeff r-i hapmap2; crossovers/gen/bp). Assume one large population with whatever coalescent jeff assumed
-                    //double noRecomb= (dist>50)?(Math.pow((1-currRho),dist))+(IntMath.binomial(dist, 2)*Math.pow(currRho, 2)*(Math.pow((1-currRho),dist-2)))+(IntMath.binomial(dist, 4)*Math.pow(currRho, 4)*(Math.pow((1-currRho),dist-4))):Math.pow((1-currRho),dist);
-                    double noRecomb= Math.pow((1-currRho), dist);
-                    if (noRecomb==0.0) noRecomb= .00000000001; //if distance very far will drive probabilities past double limit to zero
                     trans= new double[][] {//probability of recombining and probability that recombination will bring together ibd haplotypes are assumed independant
                         {noRecomb,(1-noRecomb)},//homo {homo,het}
                         {(1-noRecomb),noRecomb}//het {homo,het}
@@ -121,7 +115,8 @@ public class MakeDonorInputByHMM {
             }
         }
         mna.clean();
-        ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMNew2_het"+hetCutoff);
+        if (h5==true) ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMNew2_het"+hetCutoff);
+        else ExportUtils.writeToHapmap(mna, true, dir+inFile.substring(0, inFile.indexOf(".hmp"))+"inbredByHMMNew2_het"+hetCutoff+".hmp.txt.gz", '\t', null);
     }
     
     private static double getLD(int taxon, int siteOne, int siteTwo) { //only use when target taxon is homozygous at both sites, assume both polymorphic
@@ -228,8 +223,8 @@ public class MakeDonorInputByHMM {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
 //        dir= "/Users/kelly/Documents/GBS/Imputation/";
-        String fileName= "AllZeaGBS_v2.7_SeqToGenos_combined11_14-17.hmp.h5";
+        String fileName= "AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
         String recombFile= dir+"13KRho.txt";
-        newHomoSegDonorPrep(fileName,recombFile, .01, .2);
+        newHomoSegDonorPrep(fileName,recombFile, .01, .2, true);
     }
 }

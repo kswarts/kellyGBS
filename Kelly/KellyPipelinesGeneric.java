@@ -16,6 +16,7 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxa;
 import net.maizegenetics.gbs.tagdist.TagsByTaxa.FilePacking;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaUtils;
+import net.maizegenetics.kelly.ImputationAccuracy;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
@@ -553,43 +554,6 @@ public class KellyPipelinesGeneric {
        FastImputationBitFixedWindow.main(args);
    }
 
-   public static void runRawReadsToHapMapPlugin() {
-
-       String workDir = "/Users/kelly/Documents/GBS";
-       String[] SW_landraces = new String[] { //run 20120319
-           "-i", workDir + "/fastq/",   // contains a single HiSeq lane from DTMA (B08G4ABXX lane 1)
-           "-k", workDir + "/SW_landraces/fastq/KLS15to16wSBkey.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-o", workDir + "/SW_landraces/production",
-           "-m", workDir + "/topm_filtered_042012.topm", // master TOPM file with variants recorded from discovery phase
-//            "-d", "0",  // Maximum divergence between new read and previously mapped read (default = 0)
-       };
-
-       String[] RI_landraces = new String[] { //run 20120319
-           "-i", workDir + "/fastq/",   // contains a single HiSeq lane from DTMA (B08G4ABXX lane 1)
-           "-k", workDir + "/RI_landraces/fastq/C08JYACXX_2_KLS_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-o", workDir + "/RI_landraces/",
-           "-m", workDir + "/topm_filtered_042012.topm", // master TOPM file with variants recorded from discovery phase
-//            "-d", "0",  // Maximum divergence between new read and previously mapped read (default = 0)
-       };
-
-       String[] NIL28Args = new String[] {
-           "-i", "/usr/local/maizediv/illumina/Zea/NIL28/fastq",   // contains symbolic links to the 4 lanes of data
-           "-k", "/usr/local/maizediv/illumina/Zea/NIL28/NIL28BarcodeKey.txt",
-           "-e", "ApeKI",
-           "-o", "/usr/local/maizediv/illumina/Zea/NIL28/ProdHapmap/oldTOPM",
-           "-m", "/usr/local/maizediv/illumina/Zea/DTMA/topm/mergedNAM282Ames_variants2_20111018.topm.bin", // old TOPM with variants recorded from discovery phase (NOT COMPLEMENTED)
-//            "-m", "/usr/local/maizediv/illumina/Zea/build20120110/topm/zea20120110c1-4.prod1-4.topm", // master TOPM file with variants recorded from discovery phase
-//            "-d", "0",  // Maximum divergence between new read and previously mapped read (default = 0)
-       };
-
-       String[] args = RI_landraces;
-       RawReadsToHapMapPlugin plugin = new RawReadsToHapMapPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
-   }
-
    public static void analyzeRI_landraces_minCount3() {
        String[] args;
        String baseDir = "/Users/kelly/Documents/GBS/RI_landraces/";
@@ -819,178 +783,12 @@ public class KellyPipelinesGeneric {
 
    }
 
-   public static void analyzeB08AAABXX_1_PstI_IBM_TBTByte() {
-       String baseDir = "/usr/local/maizediv/illumina/Zea/PstI/";
-
-       String[] FastqToTBTArgs = new String[] {
-           "-i", baseDir+"fastq",
-           "-k", baseDir+"B08AAABXX_1_IBM94PstI_key.txt",
-           "-e", "PstI", // Enzyme used to create the GBS library
-           "-o", baseDir+"tbtByte",
-           "-c", "1", // Minimum tag count (default is 1).
-           "-y", // use TagsByTaxaByte
-           "-t", baseDir+"tagCounts/B08AAABXX_1.cnt", // master Tags file (only one lane)
-       };
-       FastqToTBTPlugin pluginFastqToTBT = new FastqToTBTPlugin();
-       pluginFastqToTBT.setParameters(FastqToTBTArgs);
-       pluginFastqToTBT.performFunction(null);
-
-       // convery the binary tbt.byte file to a text version
-       String tbtByteFile = baseDir+"tbtByte/B08AAABXX_1.tbt.byte";
-       TagsByTaxa tbtByteIBMPstI = new TagsByTaxaByte(tbtByteFile, FilePacking.Byte);
-       String tbtByteTextFile = baseDir+"tbtByte/B08AAABXX_1.tbt.txt";
-       tbtByteIBMPstI.writeDistFile(new File(tbtByteTextFile), FilePacking.Text, 1);
-
-       String[] TagsToSNPByAlignmentArgs = new String[] {
-           "-i",    baseDir+"tbtByte/B08AAABXX_1.tbt.byte",
-           "-y", // use TagsByTaxaByte
-           "-o",    baseDir+"hapmap/quantMnF80MinLCov10",
-           "-m",    baseDir+"topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-//            "-mUpd", baseDir+"",
-           "-mnF",   "0.8",  // allow some more hets in IBM (tried 0.8 initially, then 0.6, 0.7, and 0.8 again)
-           "-mnMAF", "0.2",
-           "-mnMAC", "99999",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.1", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-//            "-callBiSNPsWGap",  //call sites with a biallelic SNP plus a gap (e.g., A/C/-)
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       String[] args = TagsToSNPByAlignmentArgs;
-       TagsToSNPByAlignmentPlugin pluginTagsToSNPByAlignment = new TagsToSNPByAlignmentPlugin();
-       pluginTagsToSNPByAlignment.setParameters(args);
-       pluginTagsToSNPByAlignment.performFunction(null);
-   }
-
-   public static void analyzeIBM94ApeKI() {
-       String baseDir = "/usr/local/maizediv/illumina/Zea/IBM94ApeKI/";
-
-       String[] QseqToTagCountArgs = new String[] {
-           "-i", baseDir+"qseq",
-           "-k", baseDir+"C05F2ACXX_5_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-//            "-s", "200000000", // Max good reads per lane. (Optional. Default is 200,000,000)
-           "-c", "5", // Minimum tag count (default is 1).
-           "-o", baseDir+"tagCounts",
-       };
-       QseqToTagCountPlugin pluginQseqToTagCount = new QseqToTagCountPlugin();
-       pluginQseqToTagCount.setParameters(QseqToTagCountArgs);
-       pluginQseqToTagCount.performFunction(null);
-
-       String[] QseqToTBTArgs = new String[] {
-           "-i", baseDir+"qseq",
-           "-k", baseDir+"C05F2ACXX_5_key.txt",
-           "-e", "ApeKI", // Enzyme used to create the GBS library
-           "-o", baseDir+"tbt",
-           "-c", "1", // Minimum tag count (default is 1).
-           "-y", // use TagsByTaxaByte
-           "-t", baseDir+"tagCounts/C05F2ACXX_5.cnt", // master Tags file (only one lane)
-       };
-       QseqToTBTPlugin pluginQseqToTBT = new QseqToTBTPlugin();
-       pluginQseqToTBT.setParameters(QseqToTBTArgs);
-       pluginQseqToTBT.performFunction(null);
-
-       String TagCountFileName = baseDir+"tagCounts/C05F2ACXX_5.cnt";
-       String FastQFileName    = baseDir+"tagCounts/C05F2ACXX_5_IBM94ApeKI_min5.fastq";
-       TagCounts tc = new TagCounts();
-       tc.toFASTQ(TagCountFileName, FastQFileName);
-
-       // Comment out the next two steps until BWA has been run
-       // At that point, comment out the above steps
-
-       String[] SAMConverterPluginArgs = new String[] {
-           "-i", baseDir+"tagCounts/C05F2ACXX_5_IBM94ApeKI_min5.sam",
-           "-o", baseDir+     "topm/C05F2ACXX_5_IBM94ApeKI_min5.topm.bin",
-       };
-       SAMConverterPlugin pluginSAMConverter = new SAMConverterPlugin();
-       pluginSAMConverter.setParameters(SAMConverterPluginArgs);
-       pluginSAMConverter.performFunction(null);
-
-       String[] TagsToSNPByAlignmentArgs = new String[] {
-           "-i",    baseDir+"tbt/C05F2ACXX_5.tbt.byte",
-           "-y", // use TagsByTaxaByte
-           "-o",    baseDir+"hapmap/unfilt",
-           "-m",    baseDir+"topm/C05F2ACXX_5_IBM94ApeKI_min5.topm.bin",
-//            "-mUpd", baseDir+"",
-           "-mnF",   "0.8",  // allow some more hets in IBM
-           "-mnMAF", "0.2",
-           "-mnMAC", "99999",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.05", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-//            "-callBiSNPsWGap",  //call sites with a biallelic SNP plus a gap (e.g., A/C/-)
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-       TagsToSNPByAlignmentPlugin pluginTagsToSNPByAlignment = new TagsToSNPByAlignmentPlugin();
-       pluginTagsToSNPByAlignment.setParameters(TagsToSNPByAlignmentArgs);
-       pluginTagsToSNPByAlignment.performFunction(null);
-   }
-
    public static void  testTOPMExpandMaxVariants() {
        String TOPMwVariantsFile = "/usr/local/maizediv/illumina/Zea/DTMA/topm/mergedNAM282Ames_variants2_20111018.topm.bin";
        TagsOnPhysicalMap topm = new TagsOnPhysicalMap(TOPMwVariantsFile, true);
        topm.printRows(1000, true, true);
        topm.expandMaxVariants(8);
        topm.printRows(1000, true, true);
-   }
-
-   public static void runTagsToSNPByAlignmentPlugin() {
-
-       String workdir= "/Users/kelly/Documents/GBS/";
-       String[] SWLandracesArgs = new String[] {
-
-           "-i",    workdir+"SW_landraces/mergedTBT/SW_landraces_wSorghum_min1.tbt.byte",
-           "-o",    workdir+"SW_landraces/hapmap/wSB/unfilt",
-           "-m",    workdir+"topm_filtered_042012.topm",
-           "-y",
-//            "-mUpd", workdir+"topm_filtered_04012_wSW3.topm",
-//            "-mnF",   "0.9",
-//            "-mnMAF", "0.02",
-//            "-mnMAC", "10",
-//            "-mnLCov","0.02", // Minimum locus coverage (proportion of Taxa)
-//            "-inclRare",
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-
-       String baseDirIBM94PstI = "/usr/local/maizediv/illumina/Zea/PstI/";
-       String[] IBM94PstIArgs = new String[] {
-           "-i",    baseDirIBM94PstI+"tbtByte/B08AAABXX_1.tbt.byte",
-           "-y", // use TagsByTaxaByte
-           "-o",    baseDirIBM94PstI+"hapmap/quantMnF80MinLCov10",
-           "-m",    baseDirIBM94PstI+"topm/B08AAABXX_1_IBM94PstI_min50.topm.bin",
-//            "-mUpd", baseDir+"",
-           "-mnF",   "0.8",  // allow some more hets in IBM (tried 0.8 initially, then 0.6, 0.7, and 0.8 again)
-           "-mnMAF", "0.2",
-           "-mnMAC", "99999",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.1", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-//            "-callBiSNPsWGap",  //call sites with a biallelic SNP plus a gap (e.g., A/C/-)
-           "-s", "1",  // Start chromosome
-           "-e", "10"  // End chromosome
-       };
-
-       String baseDirCassava = "N:/cassava/";
-       String[] CassavaArgs = new String[] {
-           "-i",    baseDirCassava+"D09WGACXX_7.tbt.byte",
-           "-y", // use TagsByTaxaByte
-           "-o",    baseDirCassava+"hapmap/unfilt",
-           "-m",    baseDirCassava+"cassava.topm.bin",
-//            "-mUpd", baseDir+"",
-//            "-mnF",   "-0.5",  // cassava is outbred
-           "-mnMAF", "0.05",
-           "-mnMAC", "9999",  // this will never be satified: this way -mnMAF overrides it
-           "-mnLCov","0.40", // Minimum locus coverage (proportion of Taxa)
-//            "-inclGaps",  // Include sites where major or minor allele is a GAP
-           "-s", "1",  // Start chromosome
-           "-e", "13000"  // End chromosome
-       };
-
-       String[] args = SWLandracesArgs;
-       TagsToSNPByAlignmentPlugin plugin = new TagsToSNPByAlignmentPlugin();
-       plugin.setParameters(args);
-       plugin.performFunction(null);
    }
 
    public static void runQuantPipeline() {  // this method is not finished
