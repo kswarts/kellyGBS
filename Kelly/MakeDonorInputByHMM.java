@@ -109,8 +109,8 @@ public class MakeDonorInputByHMM {
             }
         }
         mna.clean();
-        if (h5==true) ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMwithF_het"+hetCutoff);
-        else ExportUtils.writeToHapmap(mna, true, dir+inFile.substring(0, inFile.indexOf(".hmp"))+"inbredByHMMNew2_het"+hetCutoff+".hmp.txt.gz", '\t', null);
+        if (h5==true) ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMM"+hetCutoff);
+        else ExportUtils.writeToHapmap(mna, true, dir+inFile.substring(0, inFile.indexOf(".hmp"))+"inbredByHMM"+hetCutoff+".hmp.txt.gz", '\t', null);
     }
     
     private static double getLD(int taxon, int siteOne, int siteTwo) { //only use when target taxon is homozygous at both sites, assume both polymorphic
@@ -215,10 +215,11 @@ public class MakeDonorInputByHMM {
     
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
-        dir= "/Users/kls283/Desktop/";
-//        dir= "/Users/kelly/Documents/GBS/Imputation/";
+//        dir= "/Users/kls283/Desktop/";
+//        dir= "/Users/kelly/Documents/GBS/Imputation/"; //laptopOld
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation/"; //desktop
         String fileName= "AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
         String recombFile= dir+"13KRho.txt";
-        newHomoSegDonorPrep(fileName,recombFile, .01, .2, true);
+        newHomoSegDonorPrep(fileName,recombFile, .11, .2, true);
     }
 }
