@@ -51,8 +51,7 @@ public class MakeDonorInputByHMM {
             double probTrueHet= -1;
             boolean newChr= true;
             int lastSite= 0;
-            int lastKnownHet= 0;
-            for (int site = 0; site < mnah5.getSequenceCount(); site++) {
+            for (int site = 0; site < mnah5.getSiteCount(); site++) {
                 if (Arrays.binarySearch(whichChr, mnah5.getLocusName(site))<0) {//set to missing sites on chromosomes with no recombination information
                     mna.setBase(taxon, site, diploidN);
                     continue;
@@ -80,22 +79,22 @@ public class MakeDonorInputByHMM {
                 double noRecomb= Math.pow((1-currRho), dist);
                 if (noRecomb<.0000000001) newChr= true; //reset if sites are very far apart
                 
-                if (newChr==true&&mnah5.isHeterozygous(taxon, site)==false) { //initialize HMM with HW expected allele freq (unless obs false)
-                    probTrueHomo= (1-currPQ)*emiss[0][obs]; //the starting probabilities for each true state, given the observed state
-                    probTrueHet= currPQ*emiss[1][obs];
-                    if (probTrueHet>probTrueHomo) mna.setBase(taxon, site, diploidN); //if true state chosen to be het, change site to missing
-                    lastSite= site;
-                    newChr= false;
-                }
-                else if (mnah5.isHeterozygous(taxon, site)==true) {
+                if (obs==1) {//if obs heterozygous prob set to sequence error
                     probTrueHomo= 0.001;
                     probTrueHet= .999;
                     lastSite= site;
+                    newChr= false;
+                }
+                else if (newChr==true) { //initialize HMM with HW expected allele freq (do if sites too far apart as well)
+                    probTrueHomo= (1-currPQ)*emiss[0][obs]; //the starting probabilities for each true state, given the observed state
+                    probTrueHet= currPQ*emiss[1][obs];
+                    lastSite= site;
+                    newChr= false;
                 }
                 else {
                     trans= new double[][] {//probability of recombining and probability that recombination will bring together ibd haplotypes are assumed independant
-                        {noRecomb,(1-noRecomb)},//homo {homo,het}
-                        {(1-noRecomb),noRecomb}//het {homo,het}
+                        {noRecomb,(1-noRecomb)*(1-f)},//homo {homo,het}
+                        {(1-noRecomb)*f,noRecomb}//het {homo,het}
                     };
                     double homoHomo= probTrueHomo*trans[0][0]*emiss[0][obs]; //path probabilities from true homo at last site to true homo at curr site
                     double homoHet= probTrueHomo*trans[0][1]*emiss[1][obs];
@@ -103,19 +102,14 @@ public class MakeDonorInputByHMM {
                     double hetHet= probTrueHet*trans[1][1]*emiss[1][obs];
                     probTrueHomo=hetHomo>homoHomo?hetHomo:homoHomo;
                     probTrueHet= hetHet>homoHet?hetHet:homoHet;
-//                    if (probTrueHomo==0||probTrueHet==0) {//probabilities can be driven to zero if below double value
-//                        if (het==true) {probTrueHomo= .49; probTrueHet= .51;}
-//                        else {probTrueHomo= .51; probTrueHet= .49;}
-//                    } 
                     lastSite= site;
-                    if (mnah5.isHeterozygous(taxon, site)==true) lastKnownHet= site;
                 }
                 //if likely in a het sequence, set to missing if two in a row
                 if (probTrueHet>probTrueHomo) mna.setBase(taxon, site, diploidN);
             }
         }
         mna.clean();
-        if (h5==true) ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMNew2_het"+hetCutoff);
+        if (h5==true) ExportUtils.writeToHDF5(mna, dir+inFile+"inbredByHMMwithF_het"+hetCutoff);
         else ExportUtils.writeToHapmap(mna, true, dir+inFile.substring(0, inFile.indexOf(".hmp"))+"inbredByHMMNew2_het"+hetCutoff+".hmp.txt.gz", '\t', null);
     }
     
@@ -221,7 +215,7 @@ public class MakeDonorInputByHMM {
     
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
-        dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+        dir= "/Users/kls283/Desktop/";
 //        dir= "/Users/kelly/Documents/GBS/Imputation/";
         String fileName= "AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
         String recombFile= dir+"13KRho.txt";
