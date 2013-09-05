@@ -127,8 +127,10 @@ public class ImputationAccuracy {
         
         if (h5==true) {
             if (exportDepth==true) ExportUtils.writeToMutableHDF5((Alignment)filterMna, inFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, true);
-            else ExportUtils.writeToMutableHDF5((Alignment)filterMna, inFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, false);
-            ExportUtils.writeToMutableHDF5((Alignment)filterSiteMna, inFile.length()-6+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom, null, false);
+            else {
+                ExportUtils.writeToMutableHDF5(filterMna,inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
+                ExportUtils.writeToMutableHDF5(filterSiteMna,inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
+            }
         }
         else {
             ExportUtils.writeToHapmap(filterMna, true, inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
@@ -707,7 +709,8 @@ public class ImputationAccuracy {
         String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
 //        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
 //        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
         int depth= 5;
         int maskDenom= 3;
         maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
@@ -719,3 +722,4 @@ public class ImputationAccuracy {
         }
     
 }
+
