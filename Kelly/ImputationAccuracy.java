@@ -128,13 +128,13 @@ public class ImputationAccuracy {
         if (h5==true) {
             if (exportDepth==true) ExportUtils.writeToMutableHDF5((Alignment)filterMna, inFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, true);
             else {
-                ExportUtils.writeToMutableHDF5(filterMna,inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
-                ExportUtils.writeToMutableHDF5(filterSiteMna,inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
+                ExportUtils.writeToMutableHDF5(filterMna,inFile.substring(0, inFile.length()-6)+"_masked_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
+                ExportUtils.writeToMutableHDF5(filterSiteMna,inFile.substring(0, inFile.length()-6)+"_maskKey_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.h5", null, false);
             }
         }
         else {
-            ExportUtils.writeToHapmap(filterMna, true, inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
-            ExportUtils.writeToHapmap(filterSiteMna, true, inFile.substring(0, inFile.length()-6)+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(filterMna, true, inFile.substring(0, inFile.length()-6)+"_masked_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(filterSiteMna, true, inFile.substring(0, inFile.length()-6)+"_maskKey_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
         }
     }
     
