@@ -4,7 +4,6 @@
  */
 package Kelly;
 
-import net.maizegenetics.kelly.*;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
@@ -77,17 +76,45 @@ public class ImputationAccuracy {
         ExportUtils.writeToHapmap(mask, true, dir+maskFile+"_masked55k.hmp.txt.gz", '\t', null);
     }
     
-    public static void maskFileByDepth(String inHDF5, int DepthToMask) {
-        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(inHDF5);
-        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(ImportUtils.readGuessFormat(inHDF5, false));
-        for (int taxon = 0; taxon < mnah5.getSequenceCount(); taxon++) {
-            for (int site = 0; site < mnah5.getSiteCount(); site++) {
-                if (getReadDepthForMinMaj(mnah5.getDepthForAlleles(taxon, site),getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site)))==DepthToMask)
-                    mna.setBase(taxon, site, diploidN);
+    public static void maskFileByDepth(String depthFile, String inFile, int depthToMask, int maskDenom, boolean h5, boolean exportDepth) {
+        Alignment a= (Alignment) ImportUtils.readFromHapmap(inFile, null);
+        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+        System.out.println("Read in file to mask");
+        MutableNucleotideAlignment siteMna= mna;
+        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(depthFile);
+        System.out.println("Read in depth file");
+        int cnt= 0;
+        String[] h5Taxa= new String[mnah5.getSequenceCount()];
+        for (int taxon = 0; taxon < h5Taxa.length; taxon++) { h5Taxa[taxon]= mnah5.getFullTaxaName(taxon);}
+        for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
+            int taxaCnt= 0;
+            int h5Taxon= Arrays.binarySearch(h5Taxa, mna.getFullTaxaName(taxon));
+            if (h5Taxon<0) {System.out.println("Problem matching taxon "+mna.getTaxaName(taxon)+". Not masked."); continue;}
+            for (int site = 0; site < mna.getSiteCount(); site++) {
+                siteMna.setBase(taxon, site, diploidN);
+                int h5Site= mnah5.getSiteOfPhysicalPosition(mna.getPositionInLocus(site), mna.getLocus(site));
+                if (getReadDepthForMinMaj(mnah5.getDepthForAlleles(h5Taxon, h5Site),getIndexForMinMaj(mnah5.getMajorAllele(h5Site),mnah5.getMinorAllele(h5Site)))==depthToMask){
+                    if (mnah5.getPositionInLocus(h5Site)%maskDenom==0) {
+                        mna.setBase(taxon, site, diploidN);
+                        siteMna.setBase(taxon, site, mnah5.getBase(h5Taxon, h5Site));
+                        taxaCnt++;
+                        cnt++;
+                    }
+                }   
             }
+            System.out.println(taxaCnt+" sites masked for "+mna.getTaxaName(taxon));
         }
+        System.out.println(cnt+" sites masked at a depth of "+depthToMask+" (site numbers that can be divided by "+maskDenom+")");
         mna.clean();
-        ExportUtils.writeToHapmap(mna, true, inHDF5.substring(0, inHDF5.length()-6)+"_masked.hmp.txt.gz", '\t', null);
+        if (h5==true) {
+            if (exportDepth==true) ExportUtils.writeToMutableHDF5((Alignment)mna, depthFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, true);
+            else ExportUtils.writeToMutableHDF5((Alignment)mna, depthFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, false);
+            ExportUtils.writeToMutableHDF5((Alignment)siteMna, depthFile.length()-6+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom, null, false);
+        }
+        else {
+            ExportUtils.writeToHapmap(mna, true, depthFile.substring(0, depthFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(siteMna, true, depthFile.substring(0, depthFile.length()-6)+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+        }
     }
     
     private static int[] getIndexForMinMaj(byte maj, byte min) {
@@ -297,37 +324,95 @@ public class ImputationAccuracy {
         }
     }
     
-    public static void accuracyByDepthMask(String unimputedHDF5,int depthMasked, String imputedFileName) {
-        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(unimputedHDF5);
-        Alignment imputed= ImportUtils.readGuessFormat(imputedFileName, false);
+    public static void accuracyByDepthMask(String maskIndexFile, String imputedFileName, int maskDepth, int maskDenom) {
+        Alignment index= ImportUtils.readGuessFormat(maskIndexFile,true);
+        Alignment imputed= ImportUtils.readGuessFormat(imputedFileName,true);
         int[] hetAll= new int[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
         int[] minorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
         int[] majorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
         System.out.println("Taxon\tTotalSitesCompared\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
                 + "WrongMinor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor");
-        for (int taxon = 0; taxon < mnah5.getSequenceCount(); taxon++) {
+        String[] h5Taxa= new String[index.getSequenceCount()];
+        for (int site = 0; site < h5Taxa.length; site++) { h5Taxa[site]= index.getFullTaxaName(site);}
+        for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
+            int h5Taxon= Arrays.binarySearch(h5Taxa, imputed.getFullTaxaName(taxon));
+            if (h5Taxon<0) {System.out.println("Problem matching taxon "+imputed.getTaxaName(taxon)+". Not masked."); continue;}
             int[] het= new int[4]; //0total count, 1good, 2toOneCorrectHomo, 3unimp
             int[] minor= new int[4]; //0total count, 1good, 2toHet, 3unimp
             int[] major= new int[4]; //0total count, 1good, 2toHet, 3unimp
-            for (int site = 0; site < mnah5.getSiteCount(); site++) {
-                if (getReadDepthForMinMaj(mnah5.getDepthForAlleles(taxon, site),getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site)))==depthMasked) {
+            for (int site= 0; site<imputed.getSiteCount(); site++) {
+                if (imputed.getPositionInLocus(site)%maskDenom==0) {
+                    int h5Site= index.getSiteOfPhysicalPosition(imputed.getPositionInLocus(site), imputed.getLocus(site));
                     byte imp= imputed.getBase(taxon, site);
-                    byte known= mnah5.getBase(taxon, site);
-                    if (mnah5.isHeterozygous(taxon, site)==true) {
+                    byte known= index.getBase(h5Taxon, h5Site);
+                    if (index.isHeterozygous(h5Taxon, h5Site)==true) {
                         het[0]++;
                         if (imp==diploidN) het[3]++;
                         else if (AlignmentUtils.isEqual(imp, known)==true) het[1]++;
                         else if (AlignmentUtils.isHeterozygous(imp)==false && AlignmentUtils.isPartiallyEqual(imp, known)==true) het[2]++;
                         else het[4]++;
                     }
-                    else if (mnah5.getBaseArray(taxon, site)[0]==mnah5.getMinorAllele(site)) {
+                    else if (index.getBaseArray(h5Taxon, h5Site)[0]==index.getMinorAllele(h5Site)) {
                         minor[0]++;
                         if (imp==diploidN) minor[3]++;
                         else if (AlignmentUtils.isEqual(imp, known)==true) minor[1]++;
                         else if (AlignmentUtils.isHeterozygous(imp)==true && AlignmentUtils.isPartiallyEqual(imp, known)==true) minor[2]++;
                         else minor[4]++;
                     }
-                    else if (mnah5.getBaseArray(taxon, site)[0]==mnah5.getMajorAllele(site)) {
+                    else if (index.getBaseArray(h5Taxon, h5Site)[0]==index.getMajorAllele(h5Site)) {
+                        major[0]++;
+                        if (imp==diploidN) major[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) major[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==true && AlignmentUtils.isPartiallyEqual(imp, known)==true) major[2]++;
+                        else major[4]++;
+                    }
+                    else continue;
+                }
+            }
+            System.out.println(imputed.getTaxaName(taxon)+"\t"+(het[0]+minor[0]+major[0])+"\t"+het[1]/het[0]+"\t"+het[2]/het[0]+"\t"+het[3]/het[0]+"\t"+het[4]/het[0]+"\t"+minor[1]/minor[0]+
+                    "\t"+minor[2]/minor[0]+"\t"+minor[3]/minor[0]+"\t"+minor[4]/minor[0]+"\t"+major[1]/major[0]+"\t"+major[2]/major[0]+"\t"+major[3]/major[0]+"\t"+major[4]/major[0]);
+            for (int i = 0; i < major.length; i++) {hetAll[i]+= het[i];minorAll[i]+= minor[i];majorAll[i]+= major[i];}
+        }
+        System.out.println("Total\t"+(hetAll[0]+minorAll[0]+majorAll[0])+"\t"+hetAll[1]/hetAll[0]+"\t"+hetAll[2]/hetAll[0]+"\t"+hetAll[3]/hetAll[0]+"\t"+hetAll[4]/hetAll[0]+"\t"+minorAll[1]/minorAll[0]+
+                    "\t"+minorAll[2]/minorAll[0]+"\t"+minorAll[3]/minorAll[0]+"\t"+minorAll[4]/minorAll[0]+"\t"+majorAll[1]/majorAll[0]+"\t"+majorAll[2]/majorAll[0]+"\t"+majorAll[3]/majorAll[0]+"\t"+majorAll[4]/majorAll[0]);
+    }
+    
+    public static void accuracyByDepthHmp(String maskIndexFile, String imputedFileName) {
+        Alignment index= ImportUtils.readGuessFormat(maskIndexFile,true);
+        Alignment imputed= ImportUtils.readGuessFormat(imputedFileName,true);
+        int[] hetAll= new int[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
+        int[] minorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
+        int[] majorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
+        System.out.println("Taxon\tTotalSitesCompared\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
+                + "WrongMinor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor");
+        String[] h5Taxa= new String[index.getSequenceCount()];
+        for (int site = 0; site < h5Taxa.length; site++) { h5Taxa[site]= index.getFullTaxaName(site);}
+        for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
+            int h5Taxon= Arrays.binarySearch(h5Taxa, imputed.getFullTaxaName(taxon));
+            if (h5Taxon<0) {System.out.println("Problem matching taxon "+imputed.getTaxaName(taxon)+". Not masked."); continue;}
+            int[] het= new int[4]; //0total count, 1good, 2toOneCorrectHomo, 3unimp
+            int[] minor= new int[4]; //0total count, 1good, 2toHet, 3unimp
+            int[] major= new int[4]; //0total count, 1good, 2toHet, 3unimp
+            for (int site= 0; site<imputed.getSiteCount(); site++) {
+                if (index.getBase(taxon, site)!=diploidN) {
+                    int h5Site= index.getSiteOfPhysicalPosition(imputed.getPositionInLocus(site), imputed.getLocus(site));
+                    byte imp= imputed.getBase(taxon, site);
+                    byte known= index.getBase(h5Taxon, h5Site);
+                    if (index.isHeterozygous(h5Taxon, h5Site)==true) {
+                        het[0]++;
+                        if (imp==diploidN) het[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) het[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==false && AlignmentUtils.isPartiallyEqual(imp, known)==true) het[2]++;
+                        else het[4]++;
+                    }
+                    else if (index.getBaseArray(h5Taxon, h5Site)[0]==index.getMinorAllele(h5Site)) {
+                        minor[0]++;
+                        if (imp==diploidN) minor[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) minor[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==true && AlignmentUtils.isPartiallyEqual(imp, known)==true) minor[2]++;
+                        else minor[4]++;
+                    }
+                    else if (index.getBaseArray(h5Taxon, h5Site)[0]==index.getMajorAllele(h5Site)) {
                         major[0]++;
                         if (imp==diploidN) major[3]++;
                         else if (AlignmentUtils.isEqual(imp, known)==true) major[1]++;
@@ -599,14 +684,18 @@ public class ImputationAccuracy {
 //                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2.hmp.txt.gz",null),true, -1, .6, .005, .2, "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.Accuracy55k.txt");
         
 //         //mask using depth. requires an hdf5 file with depth
-        dir= "/Users/kelly/Documents/GBS/Imputation/";
-        String h5= "AllZeaGBS_v2.7_SeqToGenos_combined.hmp.h5";
-        int depth= 3;
-        maskFileByDepth(h5,depth);
+        dir= "/home/kls283/Documents/Imputation/";//cbsugbs
+        String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
+//        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
+//        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
+        String fileToMask= dir+"AllZeaGBSv27.hmp.txt.gz";
+        int depth= 5;
+        int maskDenom= 3;
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
         
         //run accuracy on depth-masked imputed file. Only system out now.
-        String imputed= "";
-        accuracyByDepthMask(h5,depth,imputed);
+//        String imputed= "";
+//        accuracyByDepthMask(h5,imputed, depth, maskDenom);
         
         }
     
