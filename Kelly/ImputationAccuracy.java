@@ -9,14 +9,19 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
+import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
+import net.maizegenetics.pal.ids.IdGenerator;
+import net.maizegenetics.pal.ids.IdGroup;
+import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.prefs.TasselPrefs;
 
 /**
@@ -77,7 +82,7 @@ public class ImputationAccuracy {
     }
     
     public static void maskFileByDepth(String depthFile, String inFile, int depthToMask, int maskDenom, boolean h5, boolean exportDepth) {
-        Alignment a= (Alignment) ImportUtils.readFromHapmap(inFile, null);
+        Alignment a= ImportUtils.readGuessFormat(inFile, true);
         MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
         System.out.println("Read in file to mask");
         MutableNucleotideAlignment siteMna= mna;
@@ -86,10 +91,15 @@ public class ImputationAccuracy {
         int cnt= 0;
         String[] h5Taxa= new String[mnah5.getSequenceCount()];
         for (int taxon = 0; taxon < h5Taxa.length; taxon++) { h5Taxa[taxon]= mnah5.getFullTaxaName(taxon);}
+        ArrayList<Identifier> remove= new ArrayList<>();
         for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
             int taxaCnt= 0;
             int h5Taxon= Arrays.binarySearch(h5Taxa, mna.getFullTaxaName(taxon));
-            if (h5Taxon<0) {System.out.println("Problem matching taxon "+mna.getTaxaName(taxon)+". Not masked."); continue;}
+            if (h5Taxon<0) {
+                System.out.println("Problem matching taxon "+mna.getFullTaxaName(taxon)+". Not masked and excluded.");
+                remove.add(mna.getIdGroup().getIdentifier(taxon));
+                continue;
+            }
             for (int site = 0; site < mna.getSiteCount(); site++) {
                 siteMna.setBase(taxon, site, diploidN);
                 int h5Site= mnah5.getSiteOfPhysicalPosition(mna.getPositionInLocus(site), mna.getLocus(site));
@@ -105,15 +115,24 @@ public class ImputationAccuracy {
             System.out.println(taxaCnt+" sites masked for "+mna.getTaxaName(taxon));
         }
         System.out.println(cnt+" sites masked at a depth of "+depthToMask+" (site numbers that can be divided by "+maskDenom+")");
+        System.out.println(remove.size()+" taxa not masked due to taxa name mismatch and excluded from output files");
+        System.out.println(mna.getSequenceCount()-remove.size()+" total taxa output");
+        
+        IdGroup removeIDs= IdGenerator.createIdGroup(remove.size());
+        for (int i = 0; i < remove.size(); i++) {removeIDs.setIdentifier(i, remove.get(i));}
         mna.clean();
+        siteMna.clean();
+        Alignment filterMna= FilterAlignment.getInstanceRemoveIDs(mna, removeIDs);
+        Alignment filterSiteMna= FilterAlignment.getInstanceRemoveIDs(siteMna, removeIDs);
+        
         if (h5==true) {
-            if (exportDepth==true) ExportUtils.writeToMutableHDF5((Alignment)mna, depthFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, true);
-            else ExportUtils.writeToMutableHDF5((Alignment)mna, depthFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, false);
-            ExportUtils.writeToMutableHDF5((Alignment)siteMna, depthFile.length()-6+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom, null, false);
+            if (exportDepth==true) ExportUtils.writeToMutableHDF5((Alignment)filterMna, inFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, true);
+            else ExportUtils.writeToMutableHDF5((Alignment)filterMna, inFile.length()-6+"_maskedDepth"+depthToMask+"_Denom"+maskDenom, null, false);
+            ExportUtils.writeToMutableHDF5((Alignment)filterSiteMna, inFile.length()-6+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom, null, false);
         }
         else {
-            ExportUtils.writeToHapmap(mna, true, depthFile.substring(0, depthFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
-            ExportUtils.writeToHapmap(siteMna, true, depthFile.substring(0, depthFile.length()-6)+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(filterMna, true, inFile.substring(0, inFile.length()-6)+"_maskedDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(filterSiteMna, true, inFile.substring(0, inFile.length()-6)+"_maskKeyDepth"+depthToMask+"_Denom"+maskDenom+".hmp.txt.gz", '\t', null);
         }
     }
     
@@ -688,7 +707,7 @@ public class ImputationAccuracy {
         String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
 //        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
 //        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-        String fileToMask= dir+"AllZeaGBSv27.hmp.txt.gz";
+        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
         int depth= 5;
         int maskDenom= 3;
         maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
