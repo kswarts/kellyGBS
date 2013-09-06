@@ -140,6 +140,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     
     //testOptions
     boolean twoWayViterbi= false;
+    boolean focusBlockViterbi= false;
 
 
     public MinorWindowKelly() {
@@ -298,8 +299,11 @@ public class MinorWindowKelly extends AbstractPlugin {
 //                    System.out.printf("VertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
                     countFullLength++; continue;}
                 //Kelly try to do something better
-           //     impTaxon=applyKellyHaplotypes();
-                if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
+                if (focusBlockViterbi) {
+                    impTaxon=applyHaplotypesByFocusBlock(taxon, donorAlign[da], donorOffset, regionHypth,  impTaxon, maskedTargetBits, maxHybridErrorRate);
+                    if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
+                }
+                
                 //resorts to solving block by block, first by inbred, and then by hybrid
                 if(inbredNN) {
                     impTaxon=applyBlockNN(impTaxon, taxon, donorAlign[da], donorOffset, regionHypth, hybridNN, maskedTargetBits, 
@@ -386,31 +390,36 @@ public class MinorWindowKelly extends AbstractPlugin {
         return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT);
     }
     
-    private ImputedTaxon applyKellyHaplotypes(int taxon, Alignment donorAlign, int donorOffset, 
+    private ImputedTaxon applyHaplotypesByFocusBlock(int taxon, Alignment donorAlign, int donorOffset, 
             DonorHypoth[][] regionHypth, ImputedTaxon impT,
             BitSet[] maskedTargetBits, double maxHybridErrorRate) {
         
         int blocks=maskedTargetBits[0].getNumWords();
         //do flanking search 
-        if(testing==1) System.out.println("Starting complete hybrid search");
+        if(testing==1) System.out.println("Starting hybrid search by focus block");
         int[] d=getAllBestDonorsAcrossChromosome(regionHypth,5);
-        DonorHypoth[] best2donors=getBestHybridDonors(taxon, maskedTargetBits[0].getBits(),
-                maskedTargetBits[1].getBits(), 0, blocks-1, blocks/2, donorAlign, d, d, true);
-        if(testing==1) System.out.println(Arrays.toString(best2donors));
-        ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
-        for (DonorHypoth dh : best2donors) {
-            if((dh!=null)&&(dh.getErrorRate()<maxHybridErrorRate)) {
-                if(dh.isInbred()==false){
-                    dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi);
+        for (int block = 0; block < blocks; block++) {
+            int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), block, minMinorCnt);
+            if(resultRange==null) continue; //no data in the focus Block
+            DonorHypoth[] best2donors=getBestHybridDonors(taxon, maskedTargetBits[0].getBits(),
+                  maskedTargetBits[1].getBits(), resultRange[0], resultRange[2], block, donorAlign, d, d, true);
+            if(testing==1) System.out.println(Arrays.toString(best2donors));
+            ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
+            for (DonorHypoth dh : best2donors) {
+                if((dh!=null)&&(dh.getErrorRate()<maxHybridErrorRate)) {
+                    if(dh.isInbred()==false){
+                        dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi);
+                    }
+                    if(dh!=null) goodDH.add(dh);
                 }
-                if(dh!=null) goodDH.add(dh);
             }
+            if(goodDH.isEmpty()) return impT;
+            DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+            for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+            impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
         }
-        if(goodDH.isEmpty()) return impT;
-        DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
-        for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
-        impT.setSegmentSolved(true);
-        return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT);
+        impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
+        return impT;
     }  
         
     /**
