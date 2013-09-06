@@ -82,10 +82,14 @@ public class ImputationAccuracy {
     }
     
     public static void maskFileByDepth(String depthFile, String inFile, int depthToMask, int maskDenom, boolean h5, boolean exportDepth) {
+        System.out.println("Depth file: "+depthFile);
+        System.out.println("File to mask: "+inFile);
+        System.out.println("Site depth to mask: "+depthToMask);
+        System.out.println("Divisor for physical positions to be masked: "+maskDenom);
         Alignment a= ImportUtils.readGuessFormat(inFile, true);
         MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+        MutableNucleotideAlignment siteMna= MutableNucleotideAlignment.getInstance(a);
         System.out.println("Read in file to mask");
-        MutableNucleotideAlignment siteMna= mna;
         MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(depthFile);
         System.out.println("Read in depth file");
         int cnt= 0;
@@ -709,10 +713,26 @@ public class ImputationAccuracy {
         String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
 //        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
 //        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
         int depth= 5;
         int maskDenom= 3;
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        
+        depth= 5;
+        maskDenom= 17;
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        
+        depth= 5;
+        maskDenom= 11;
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
         maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
         
         //run accuracy on depth-masked imputed file. Only system out now.
@@ -722,4 +742,3 @@ public class ImputationAccuracy {
         }
     
 }
-
