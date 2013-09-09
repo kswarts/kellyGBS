@@ -31,6 +31,7 @@ import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
+import net.maizegenetics.pal.alignment.MutableNucleotideDepthAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.IdGroupUtils;
@@ -828,7 +829,13 @@ public class KellyUtils {
 
     }
       
-    
+    //combine alignments, meant for the seqToGenos_partX.hmp.h5 syntax
+   public static void combineAlignmentsKeepDepth(String inFileRoot, int startNum, int endNum) {
+       MutableNucleotideAlignmentHDF5[] aligns= new MutableNucleotideAlignmentHDF5[endNum+1-startNum];
+       for (int i = startNum; i < endNum+1; i++) {aligns[i]= MutableNucleotideAlignmentHDF5.getInstance(inFileRoot+i+"hmp.h5");}
+       Alignment newAlign= MutableNucleotideDepthAlignment.getInstance(aligns);
+       ExportUtils.writeToMutableHDF5(newAlign, inFileRoot+"_combined"+startNum+"-"+endNum+".hmp.h5", null, true);
+   }
 
    
    public static void main (String args[]) {
