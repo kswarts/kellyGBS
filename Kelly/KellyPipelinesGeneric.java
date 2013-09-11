@@ -33,9 +33,9 @@ public class KellyPipelinesGeneric {
    public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
        TasselPrefs.putAlignmentRetainRareAlleles(false);
-//       runFindMergeHaplotypesPlugin();
+       runFindMergeHaplotypesPlugin();
 //       runMinorWindowViterbiImputationPlugin();
-       runExtractHapmapSubsetPlugin();
+//       runExtractHapmapSubsetPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
 //        convertBinaryTBTToText();
@@ -76,14 +76,14 @@ public class KellyPipelinesGeneric {
    }
 
    public static void runFindMergeHaplotypesPlugin() {
-       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
+       String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
 //       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het";
+       String base= "AllZeaGBSv27.hmp.h5";
        String[] testArgs = new String[] {
-            "-hmp",   dir+base+".hmp.txt.gz",
-            "-o",     dir+base+"_HaplotypeMerge4k_s+.hmp.txt.gz",//Output file(s) must include 's+.' plus will be replace by segment (0..(~sites/hapSize)\n"
+            "-hmp",   dir+base,
+            "-o",     dir+base+"_HaplotypeMerge4k_sX.hmp.h5",//Output file(s) must include 'sX.' X will be replace by segment (0..(~sites/hapSize)\n"
             "-oE",    dir+base+"_HaplotypeMerge4kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
-            "-sC",    "10",//Start chromosome\n"
+            "-sC",    "1",//Start chromosome\n"
             "-eC",    "10",// End chromosome\n"
             "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
             "-hapSize","4000",//    Preferred haplotype block size in sites\n"
@@ -98,10 +98,11 @@ public class KellyPipelinesGeneric {
    }
    
    public static void runMinorWindowViterbiImputationPlugin() {
-//       String dir= "/home/local/MAIZE/kls283/GBS/Imputation/";
-       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       String base= "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String donor= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HomoSegForTaxaGreaterThan.1Het_HaplotypeMergeWithExtraLandrace_sX.hmp.txt.gz";
+       String dir= "home/local/MAIZE/kls283/GBS/Imputation2.7/";
+//       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
+       String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
+       String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
+       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";
        
 //       String[] minMnCnt= {"15","20","25","30"};
 //       String[] mxInbErr= {".01",".02",".03",".04",".05"};
@@ -113,11 +114,11 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= "_masked_HomoSegBlock200HetWithExtras8k.minMtCntBASELINE"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".c10";   
+            String out= masked.substring(0, masked.indexOf("_masked")-1)+"_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k];   
             String[] testArgs = new String[] {
-                 "-hmp",   dir+base+"_masked.hmp.txt.gz", //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
-                 "-d",     dir+donor, //Donor haplotype files 'c+s+' to denote sections\n"
-                 "-o",     dir+base+out, //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
+                 "-d",     donor, //Donor haplotype files 'c+s+' to denote sections\n"
+                 "-o",     out, //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
      //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
      //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-sC",    "10",  //Start chromosome
@@ -136,9 +137,8 @@ public class KellyPipelinesGeneric {
             plugin.performFunction(null);
 //            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");
 //            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
-            //for 1:300 internal mask
-            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+base+".hmp.txt.gz", null), 
-                ImportUtils.readFromHapmap(dir+base+out+".hmp.txt", null),null, false, 300,.6,.01,.2,dir+base+out+"Accuracy.txt");
+            //for depth mask
+            ImputationAccuracy.accuracyDepth(keyFile, out);
             //for mask against 55k
 //            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
 //                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt",null),

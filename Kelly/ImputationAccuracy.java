@@ -349,8 +349,8 @@ public class ImputationAccuracy {
         }
     }
     
-    public static void accuracyByDepthMask(String maskIndexFile, String imputedFileName, int maskDepth, int maskDenom) {
-        Alignment index= ImportUtils.readGuessFormat(maskIndexFile,true);
+    public static void accuracyByDepthMask(String keyFile, String imputedFileName, int maskDepth, int maskDenom) {
+        Alignment index= ImportUtils.readGuessFormat(keyFile,true);
         Alignment imputed= ImportUtils.readGuessFormat(imputedFileName,true);
         int[] hetAll= new int[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
         int[] minorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
@@ -438,6 +438,54 @@ public class ImputationAccuracy {
                         else minor[4]++;
                     }
                     else if (index.getBaseArray(h5Taxon, h5Site)[0]==index.getMajorAllele(h5Site)) {
+                        major[0]++;
+                        if (imp==diploidN) major[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) major[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==true && AlignmentUtils.isPartiallyEqual(imp, known)==true) major[2]++;
+                        else major[4]++;
+                    }
+                    else continue;
+                }
+            }
+            System.out.println(imputed.getTaxaName(taxon)+"\t"+(het[0]+minor[0]+major[0])+"\t"+het[1]/het[0]+"\t"+het[2]/het[0]+"\t"+het[3]/het[0]+"\t"+het[4]/het[0]+"\t"+minor[1]/minor[0]+
+                    "\t"+minor[2]/minor[0]+"\t"+minor[3]/minor[0]+"\t"+minor[4]/minor[0]+"\t"+major[1]/major[0]+"\t"+major[2]/major[0]+"\t"+major[3]/major[0]+"\t"+major[4]/major[0]);
+            for (int i = 0; i < major.length; i++) {hetAll[i]+= het[i];minorAll[i]+= minor[i];majorAll[i]+= major[i];}
+        }
+        System.out.println("Total\t"+(hetAll[0]+minorAll[0]+majorAll[0])+"\t"+hetAll[1]/hetAll[0]+"\t"+hetAll[2]/hetAll[0]+"\t"+hetAll[3]/hetAll[0]+"\t"+hetAll[4]/hetAll[0]+"\t"+minorAll[1]/minorAll[0]+
+                    "\t"+minorAll[2]/minorAll[0]+"\t"+minorAll[3]/minorAll[0]+"\t"+minorAll[4]/minorAll[0]+"\t"+majorAll[1]/majorAll[0]+"\t"+majorAll[2]/majorAll[0]+"\t"+majorAll[3]/majorAll[0]+"\t"+majorAll[4]/majorAll[0]);
+    }
+    
+    public static void accuracyDepth(String keyFile, String imputedFileName) {
+        Alignment index= ImportUtils.readGuessFormat(keyFile,true);
+        Alignment imputed= ImportUtils.readGuessFormat(imputedFileName,true);
+        int[] hetAll= new int[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
+        int[] minorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
+        int[] majorAll= new int[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
+        System.out.println("Taxon\tTotalSitesCompared\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
+                + "WrongMinor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor");
+        for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
+            int[] het= new int[4]; //0total count, 1good, 2toOneCorrectHomo, 3unimp
+            int[] minor= new int[4]; //0total count, 1good, 2toHet, 3unimp
+            int[] major= new int[4]; //0total count, 1good, 2toHet, 3unimp
+            for (int site= 0; site<imputed.getSiteCount(); site++) {
+                if (index.getBase(taxon, site)!=diploidN) {
+                    byte imp= imputed.getBase(taxon, site);
+                    byte known= index.getBase(taxon, site);
+                    if (index.isHeterozygous(taxon, site)==true) {
+                        het[0]++;
+                        if (imp==diploidN) het[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) het[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==false && AlignmentUtils.isPartiallyEqual(imp, known)==true) het[2]++;
+                        else het[4]++;
+                    }
+                    else if (index.getBaseArray(taxon, site)[0]==imputed.getMinorAllele(site)) {
+                        minor[0]++;
+                        if (imp==diploidN) minor[3]++;
+                        else if (AlignmentUtils.isEqual(imp, known)==true) minor[1]++;
+                        else if (AlignmentUtils.isHeterozygous(imp)==true && AlignmentUtils.isPartiallyEqual(imp, known)==true) minor[2]++;
+                        else minor[4]++;
+                    }
+                    else if (index.getBaseArray(taxon, site)[0]==imputed.getMajorAllele(site)) {
                         major[0]++;
                         if (imp==diploidN) major[3]++;
                         else if (AlignmentUtils.isEqual(imp, known)==true) major[1]++;

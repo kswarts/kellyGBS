@@ -486,6 +486,29 @@ public class KellyUtils {
         }
    }
    
+   public static String[] readInTxtNames(String inFile, boolean permissive) {
+       Set<String> names= new HashSet<String>();
+       try {
+            FileInputStream fis= new FileInputStream(inFile);
+            Scanner scanner= new Scanner(fis);
+            do {
+                String next= scanner.nextLine();
+                if (permissive==true) names.add(next.substring(0, next.indexOf(":")));
+                else names.add(next);
+            }
+            while (scanner.hasNextLine());
+            scanner.close();
+            fis.close();
+        }
+        catch (Exception e) {
+        }
+        ArrayList<String> sortNames= new ArrayList<String>();
+        sortNames.addAll(names);
+        Collections.sort(sortNames);
+        String[] nameArray= Arrays.copyOf(sortNames.toArray(),sortNames.size(),String[].class);
+        return nameArray;
+   }
+   
    public static void MergeAlignments(String inFile1, boolean gz1, String inFile2, boolean gz2, String outFileName) {
        Alignment a1= ImportUtils.readFromHapmap(dir+inFile1+(gz1==true?".hmp.txt.gz":".hmp.txt"), null);
        Alignment a2= ImportUtils.readFromHapmap(dir+inFile2+(gz2==true?".hmp.txt.gz":".hmp.txt"), null);
@@ -920,7 +943,7 @@ public class KellyUtils {
        dir= "/home/local/MAIZE/kls283/GBS/Imputation/AllZea2.7Genos/";
        String[] files= new String[27];
        int index= 0;
-       for (int part = 14; part < 28; part++) {
+       for (int part = 14; part < 17; part++) {
            if (part<10) files[index]= dir+"part0"+part+"/AllZeaGBS_v2.7_SeqToGenos_part0"+part+".hmp.h5";
            else files[index]= dir+"part"+part+"/AllZeaGBS_v2.7_SeqToGenos_part"+part+".hmp.h5";
            index++;
