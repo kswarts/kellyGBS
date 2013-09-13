@@ -78,15 +78,16 @@ public class KellyPipelinesGeneric {
    public static void runFindMergeHaplotypesPlugin() {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
 //       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
-       String base= "AllZeaGBSv27.hmp.h5";
+//       String base= "AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED";
+       String base= "AllZeaGBSv27";
        String[] testArgs = new String[] {
-            "-hmp",   dir+base,
-            "-o",     dir+base+"_HaplotypeMerge4k_sX.hmp.h5",//Output file(s) must include 'sX.' X will be replace by segment (0..(~sites/hapSize)\n"
-            "-oE",    dir+base+"_HaplotypeMerge4kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
+            "-hmp",   dir+base+".hmp.h5",
+            "-o",     dir+"donors/"+base+"_HaplotypeMerge8k_sX.hmp.h5",//Output file(s) must include 'sX.' X will be replace by segment (0..(~sites/hapSize)\n"
+            "-oE",    dir+"donors/"+base+"_HaplotypeMerge8kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
             "-sC",    "1",//Start chromosome\n"
             "-eC",    "10",// End chromosome\n"
             "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
-            "-hapSize","4000",//    Preferred haplotype block size in sites\n"
+            "-hapSize","8000",//    Preferred haplotype block size in sites\n"
             "-minPres", "500", //    Minimum number of present sites within input sequence to do the search\n"
             "-maxHap",  "3000",//    Maximum number of haplotypes per segment\n"
             "-maxOutMiss",  "0.4",//  Maximum frequency of missing data in the output haplotype"
@@ -102,7 +103,8 @@ public class KellyPipelinesGeneric {
 //       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
        String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
        String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
-       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";
+       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";//standard
+//       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMerge4k_s19.hmp.h5.hmp.txt";//with HMM inbred landraces
        
 //       String[] minMnCnt= {"15","20","25","30"};
 //       String[] mxInbErr= {".01",".02",".03",".04",".05"};
