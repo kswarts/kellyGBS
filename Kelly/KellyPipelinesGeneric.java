@@ -18,7 +18,6 @@ import net.maizegenetics.gbs.tagdist.TagsByTaxaByte;
 import net.maizegenetics.gbs.tagdist.TagsByTaxaUtils;
 import net.maizegenetics.kelly.ImputationAccuracy;
 import net.maizegenetics.pal.alignment.ExportUtils;
-import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pipeline.TasselPipeline;
 import net.maizegenetics.prefs.TasselPrefs;
@@ -33,8 +32,8 @@ public class KellyPipelinesGeneric {
    public static String dir= "//home/local/MAIZE/kls283";
    public static void main(String[] args) {
        TasselPrefs.putAlignmentRetainRareAlleles(false);
-       runFindMergeHaplotypesPlugin();
-//       runMinorWindowViterbiImputationPlugin();
+//       runFindMergeHaplotypesPlugin();
+       runMinorWindowViterbiImputationPlugin();
 //       runExtractHapmapSubsetPlugin();
 //        convertTextTagCountsToBinary();
 //        convertBinaryTagCountsToText();
@@ -100,10 +99,13 @@ public class KellyPipelinesGeneric {
    }
    
    public static void runMinorWindowViterbiImputationPlugin() {
-       String dir= "home/local/MAIZE/kls283/GBS/Imputation2.7/";
+//       String dir= "home/local/MAIZE/kls283/GBS/Imputation2.7/";
+       String dir= "/Users/kellyadm/Desktop/Imputation2.7/";
 //       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
-       String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
-       String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
+//       String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
+//       String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
+       String masked= dir+"AllZeaGBSv27StrictSubsetByAmesnoEPorGEM._masked_Depth5_Denom17.hmp.h5";
+       String keyFile= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._maskKey_Depth5_Denom17.hmp.h5";
        String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";//standard
 //       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMerge4k_s19.hmp.h5.hmp.txt";//with HMM inbred landraces
        
