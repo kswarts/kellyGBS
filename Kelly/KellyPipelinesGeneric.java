@@ -79,15 +79,16 @@ public class KellyPipelinesGeneric {
        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
 //       String base= "AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1";
 //       String base= "AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED";
-       String base= "AllZeaGBSv27";
+//       String base= "AllZeaGBSv27";
+       String base= "AllZeaGBSv27CarotenoidsubString2000_cX";
        String[] testArgs = new String[] {
-            "-hmp",   dir+base+".hmp.h5",
-            "-o",     dir+"donors/"+base+"_HaplotypeMerge8k_sX.hmp.h5",//Output file(s) must include 'sX.' X will be replace by segment (0..(~sites/hapSize)\n"
-            "-oE",    dir+"donors/"+base+"_HaplotypeMerge8kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
+            "-hmp",   dir+base+".hmp.txt.gz",
+            "-o",     dir+"donors/"+base+"_HaplotypeMerge4k_gX.hmp.h5",//Output file(s) must include 'sX.' X will be replace by segment (0..(~sites/hapSize)\n"
+            "-oE",    dir+"donors/"+base+"_HaplotypeMerge4kError.txt",//Optional file to record site by sites errors as the haplotypes are developed\n"
             "-sC",    "1",//Start chromosome\n"
-            "-eC",    "10",// End chromosome\n"
+            "-eC",    "8",// End chromosome\n"
             "-mxDiv",  "0.01",//    Maximum divergence from founder haplotype\n"
-            "-hapSize","8000",//    Preferred haplotype block size in sites\n"
+            "-hapSize","3999",//    Preferred haplotype block size in sites\n"
             "-minPres", "500", //    Minimum number of present sites within input sequence to do the search\n"
             "-maxHap",  "3000",//    Maximum number of haplotypes per segment\n"
             "-maxOutMiss",  "0.4",//  Maximum frequency of missing data in the output haplotype"
@@ -116,21 +117,21 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= masked.substring(0, masked.indexOf("_masked")-1)+"_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k];   
+            String out= masked.substring(0, masked.indexOf("_masked")-1)+"_StdDonor_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k];   
             String[] testArgs = new String[] {
                  "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     donor, //Donor haplotype files 'c+s+' to denote sections\n"
                  "-o",     out, //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
      //            "-d",     dir+"AllZeaGBS_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1_HaplotypeMerge_s+.hmp.txt.gz",
      //            "-o",     dir+base+"_defaultDonor8k.minMtCnt30.c+.imp.mhmp.h5", //Output HapMap file(s) 'c+' to denote variable chromosomes\n"
-                 "-sC",    "10",  //Start chromosome
-                 "-eC",    "10",  //End chromosome\n"
+//                 "-sC",    "10",  //Start chromosome
+//                 "-eC",    "10",  //End chromosome\n"
                  "-minMnCnt",    minMnCnt[i],  //Minimum number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major) default to 20
                  "-mxInbErr",    mxInbErr[j],    //Maximum inbred error rate\n"
                  "-mxHybErr",    mxHybErr[k],    //Maximum hybrid error rate\n"
      //            "-inbNNOff",    "8",    //Whether to use inbred NN (default:"+inbredNN+")\n"
      //            "-hybNNOff",    "8",    //Whether to use both the hybrid NN (default:"+hybridNN+")\n"
-     //            "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
+                 "-mxDonH",    "8",  //Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
                  "-mnTestSite",    "20",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
             };
             String[] args = testArgs;
