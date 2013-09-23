@@ -139,7 +139,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(MinorWindowKelly.class);
     
     //testOptions
-    boolean twoWayViterbi= false;
+    boolean twoWayViterbi= true;
     boolean focusBlockViterbi= false;
 
 
@@ -343,7 +343,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     
      public Alignment[] loadDonors(String donorFileRoot){
         File theDF=new File(donorFileRoot);
-        String prefilter=theDF.getName().split(".gX.")[0]+".gc"; //grabs the left side of the file
+        String prefilter=theDF.getName().split("_gX.")[0]+"_gc"; //grabs the left side of the file
         String prefilterOld=theDF.getName().split("s\\+")[0]+"s"; //grabs the left side of the file
         ArrayList<File> d=new ArrayList<File>();
         for (File file : theDF.getParentFile().listFiles()) {
@@ -413,7 +413,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                     if(dh!=null) goodDH.add(dh);
                 }
             }
-            if(goodDH.isEmpty()) return impT;
+            if(goodDH.isEmpty()) continue;
             DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
             for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
             impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
@@ -561,9 +561,11 @@ public class MinorWindowKelly extends AbstractPlugin {
     }
     
     private DonorHypoth getStateBasedOnViterbi(DonorHypoth dh, int donorOffset, Alignment donorAlign, boolean forwardReverse) {
-        TransitionProbability tp = new TransitionProbability();
+        TransitionProbability tpF = new TransitionProbability();
+        TransitionProbability tpR = new TransitionProbability();
         EmissionProbability ep = new EmissionProbability();
-        tp.setTransitionProbability(transition);
+        tpF.setTransitionProbability(transition);
+        tpR.setTransitionProbability(transition);
         ep.setEmissionProbability(emission);
         int startSite=dh.startBlock*64;
         int endSite=(dh.endBlock*64)+63;
@@ -605,36 +607,41 @@ public class MinorWindowKelly extends AbstractPlugin {
         for (int i = 0; i < informStatesF.length; i++) informStatesF[i]=nonMissingObs.get(i);
         for (int i = 0; i < informStatesR.length; i++) informStatesR[i]=nonMissingObs.get(informStatesR.length-1-i);
         int[] pos=new int[informSites];
+        int[] posR= new int[informSites];
         for (int i = 0; i < pos.length; i++) pos[i]=snpPositions.get(i);
+        for (int i = 0; i < pos.length; i++) pos[i]=snpPositions.get(snpPositions.size()-1-i);
         int chrlength = donorAlign.getPositionInLocus(endSite) - donorAlign.getPositionInLocus(startSite);
-        tp.setAverageSegmentLength( chrlength / sites );
-        tp.setPositions(pos);
+        tpF.setAverageSegmentLength( chrlength / sites );
+        tpR.setAverageSegmentLength( chrlength / sites );
+        tpF.setPositions(pos);
+        tpR.setPositions(posR);
         
 	double probHeterozygous=0.5;
         double phom = (1 - probHeterozygous) / 2;
         double[] pTrue = new double[]{phom, .25*probHeterozygous ,.5 * probHeterozygous, .25*probHeterozygous, phom};
 		
-        ViterbiAlgorithm vaF = new ViterbiAlgorithm(informStatesF, tp, ep, pTrue);
-        ViterbiAlgorithm vaR = new ViterbiAlgorithm(informStatesR, tp, ep, pTrue);
+        ViterbiAlgorithm vaF = new ViterbiAlgorithm(informStatesF, tpF, ep, pTrue);
+        ViterbiAlgorithm vaR = new ViterbiAlgorithm(informStatesR, tpR, ep, pTrue);
 	vaF.calculate();
         vaR.calculate();
         if(testing==1) System.out.println("Input:"+Arrays.toString(informStatesF));
         byte[] resultStatesF=vaF.getMostProbableStateSequence();
+        System.out.println(Arrays.toString(resultStatesF));
         byte[] resultStatesRback=vaR.getMostProbableStateSequence();//this sequence is backwards/from the reverse viterbi
+        System.out.println(Arrays.toString(resultStatesRback));
         byte[] resultStatesR= new byte[resultStatesRback.length];
         for (int i = 0; i < resultStatesR.length; i++) resultStatesR[i]=resultStatesRback[informStatesR.length-1-i];//flip the reverse viterbi calls to the same orientation as forward
+        System.out.println(Arrays.toString(resultStatesR));
         if(testing==1) System.out.println("Resul:"+Arrays.toString(resultStatesF));
         DonorHypoth dh2=new DonorHypoth(dh.targetTaxon,dh.donor1Taxon, 
                         dh.donor2Taxon, dh.startBlock, dh.focusBlock, dh.endBlock);
         int currPos=0;
         for(int cs=0; cs<sites; cs++) {
             callsF[cs]=(resultStatesF[currPos]==1)?(byte)1:(byte)(resultStatesF[currPos]/2); //converts the scale back to 0,1,2 from 0..4
+            callsR[cs]=(resultStatesR[currPos]==1)?(byte)1:(byte)(resultStatesR[currPos]/2);
             if((pos[currPos]<cs+startSite)&&(currPos<resultStatesF.length-1)) currPos++;
         }
-        for(int cs=0; cs<sites; cs++) {
-            callsR[cs]=(resultStatesR[currPos]==1)?(byte)1:(byte)(resultStatesR[currPos]/2); //converts the scale back to 0,1,2 from 0..4
-            if((pos[currPos]<cs+startSite)&&(currPos<resultStatesR.length-1)) currPos++;
-        }
+        
         //compare the forward and reverse viterbi, use the one with the longest path length if they contradict
         byte[] callsC=new byte[sites];
         for(int cs=0; cs<sites; cs++) if (callsF[cs]!=callsR[cs]) callsC[cs]= (cs<sites/2)?callsR[cs]:callsF[cs];
