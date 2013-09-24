@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.swing.ImageIcon;
 import net.maizegenetics.annotation.Citation;
+import net.maizegenetics.gbs.pipeline.FindMergeHaplotypesPlugin;
 import net.maizegenetics.gwas.imputation.EmissionProbability;
 import net.maizegenetics.gwas.imputation.TransitionProbability;
 import net.maizegenetics.gwas.imputation.ViterbiAlgorithm;
@@ -44,6 +45,7 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.ProgressListener;
+import org.apache.commons.lang.ArrayUtils;
 
 import org.apache.log4j.Logger;
 
@@ -562,10 +564,8 @@ public class MinorWindowKelly extends AbstractPlugin {
     
     private DonorHypoth getStateBasedOnViterbi(DonorHypoth dh, int donorOffset, Alignment donorAlign, boolean forwardReverse) {
         TransitionProbability tpF = new TransitionProbability();
-        TransitionProbability tpR = new TransitionProbability();
         EmissionProbability ep = new EmissionProbability();
         tpF.setTransitionProbability(transition);
-        tpR.setTransitionProbability(transition);
         ep.setEmissionProbability(emission);
         int startSite=dh.startBlock*64;
         int endSite=(dh.endBlock*64)+63;
@@ -603,49 +603,59 @@ public class MinorWindowKelly extends AbstractPlugin {
         if(testing==1) System.out.printf("NonMendel:%d InformSites:%d ErrorRate:%g %n",nonMendel, informSites, nonMendRate);
         if(nonMendRate>this.maximumInbredError*5) return null;
         byte[] informStatesF=new byte[informSites];
-        byte[] informStatesR=new byte[informSites];
         for (int i = 0; i < informStatesF.length; i++) informStatesF[i]=nonMissingObs.get(i);
-        for (int i = 0; i < informStatesR.length; i++) informStatesR[i]=nonMissingObs.get(informStatesR.length-1-i);
         int[] pos=new int[informSites];
-        int[] posR= new int[informSites];
         for (int i = 0; i < pos.length; i++) pos[i]=snpPositions.get(i);
-        for (int i = 0; i < pos.length; i++) pos[i]=snpPositions.get(snpPositions.size()-1-i);
         int chrlength = donorAlign.getPositionInLocus(endSite) - donorAlign.getPositionInLocus(startSite);
         tpF.setAverageSegmentLength( chrlength / sites );
-        tpR.setAverageSegmentLength( chrlength / sites );
         tpF.setPositions(pos);
-        tpR.setPositions(posR);
         
 	double probHeterozygous=0.5;
         double phom = (1 - probHeterozygous) / 2;
         double[] pTrue = new double[]{phom, .25*probHeterozygous ,.5 * probHeterozygous, .25*probHeterozygous, phom};
-		
         ViterbiAlgorithm vaF = new ViterbiAlgorithm(informStatesF, tpF, ep, pTrue);
-        ViterbiAlgorithm vaR = new ViterbiAlgorithm(informStatesR, tpR, ep, pTrue);
 	vaF.calculate();
-        vaR.calculate();
         if(testing==1) System.out.println("Input:"+Arrays.toString(informStatesF));
         byte[] resultStatesF=vaF.getMostProbableStateSequence();
-        System.out.println(Arrays.toString(resultStatesF));
-        byte[] resultStatesRback=vaR.getMostProbableStateSequence();//this sequence is backwards/from the reverse viterbi
-        System.out.println(Arrays.toString(resultStatesRback));
-        byte[] resultStatesR= new byte[resultStatesRback.length];
-        for (int i = 0; i < resultStatesR.length; i++) resultStatesR[i]=resultStatesRback[informStatesR.length-1-i];//flip the reverse viterbi calls to the same orientation as forward
-        System.out.println(Arrays.toString(resultStatesR));
         if(testing==1) System.out.println("Resul:"+Arrays.toString(resultStatesF));
         DonorHypoth dh2=new DonorHypoth(dh.targetTaxon,dh.donor1Taxon, 
                         dh.donor2Taxon, dh.startBlock, dh.focusBlock, dh.endBlock);
         int currPos=0;
         for(int cs=0; cs<sites; cs++) {
             callsF[cs]=(resultStatesF[currPos]==1)?(byte)1:(byte)(resultStatesF[currPos]/2); //converts the scale back to 0,1,2 from 0..4
-            callsR[cs]=(resultStatesR[currPos]==1)?(byte)1:(byte)(resultStatesR[currPos]/2);
             if((pos[currPos]<cs+startSite)&&(currPos<resultStatesF.length-1)) currPos++;
         }
         
-        //compare the forward and reverse viterbi, use the one with the longest path length if they contradict
-        byte[] callsC=new byte[sites];
-        for(int cs=0; cs<sites; cs++) if (callsF[cs]!=callsR[cs]) callsC[cs]= (cs<sites/2)?callsR[cs]:callsF[cs];
-        dh2.phasedResults= forwardReverse==true?callsC:callsF;
+        if (forwardReverse==true) {
+            TransitionProbability tpR = new TransitionProbability();
+            tpR.setTransitionProbability(transition);
+            byte[] informStatesR= informStatesF;
+            ArrayUtils.reverse(informStatesR);
+            int[] posR= pos;
+            ArrayUtils.reverse(posR);
+            tpR.setAverageSegmentLength( chrlength / sites );
+            tpR.setPositions(posR);
+            ViterbiAlgorithm vaR = new ViterbiAlgorithm(informStatesR, tpR, ep, pTrue);
+            vaR.calculate();
+            byte[] resultStatesR=vaR.getMostProbableStateSequence();//this sequence is backwards/from the reverse viterbi
+            ArrayUtils.reverse(resultStatesR); //flip the reverse viterbi calls to the same orientation as forward
+            int currPosR=0;
+            for(int cs=0; cs<sites; cs++) { //converts the scale back to 0,1,2 from 0..4
+                callsR[cs]=(resultStatesR[currPosR]==1)?(byte)1:(byte)(resultStatesR[currPosR]/2);
+                if((pos[currPosR]<cs+startSite)&&(currPosR<resultStatesF.length-1)) currPosR++;
+            }
+            //compare the forward and reverse viterbi, use the one with the longest path length if they contradict
+            byte[] callsC=callsF;
+            for(int i= 0;i<pos.length;i++) {
+                int cs= pos[i]-startSite;
+                if (callsF[cs]!=callsR[cs]&&i<pos.length/2) callsC[cs]= callsR[cs];
+            }
+            if (resultStatesF[0]!=resultStatesR[0]||resultStatesF[resultStatesF.length-1]!=resultStatesR[resultStatesR.length-1]) System.out.println("FR:\n"+Arrays.toString(informStatesF)+"\n"+Arrays.toString(informStatesR)+"\n"+Arrays.toString(resultStatesF)+"\n"+Arrays.toString(resultStatesR)+"\n"+Arrays.toString(callsF)+"\n"+Arrays.toString(callsR)+"\n"+Arrays.toString(callsC));
+            dh2.phasedResults= callsC;
+            return dh2;
+        }
+        
+        dh2.phasedResults= callsF;
         return dh2;
     }
     
