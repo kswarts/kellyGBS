@@ -142,7 +142,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     
     //testOptions
     boolean twoWayViterbi= true;
-    boolean focusBlockViterbi= false;
+    boolean focusBlockViterbi= true;
 
 
     public MinorWindowKelly() {
@@ -305,6 +305,9 @@ public class MinorWindowKelly extends AbstractPlugin {
                     impTaxon=applyHaplotypesByFocusBlock(taxon, donorAlign[da], donorOffset, regionHypth,  impTaxon, maskedTargetBits, maxHybridErrorRate);
                     if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
                 }
+                if(impTaxon.isSegmentSolved()) {
+//                    System.out.printf("FocusVertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
+                    countFullLength++; continue;}
                 
                 //resorts to solving block by block, first by inbred, and then by hybrid
                 if(inbredNN) {
@@ -400,6 +403,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         //do flanking search 
         if(testing==1) System.out.println("Starting hybrid search by focus block");
         int[] d=getAllBestDonorsAcrossChromosome(regionHypth,5);
+        int blocksSolved= 0;
         for (int block = 0; block < blocks; block++) {
             int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), block, minMinorCnt);
             if(resultRange==null) continue; //no data in the focus Block
@@ -416,11 +420,12 @@ public class MinorWindowKelly extends AbstractPlugin {
                 }
             }
             if(goodDH.isEmpty()) continue;
+            blocksSolved++;
             DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
             for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
             impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
         }
-        impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
+        if (blocksSolved>blocks/4) impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
         return impT;
     }  
         
