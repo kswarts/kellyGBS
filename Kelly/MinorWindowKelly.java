@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -141,8 +142,10 @@ public class MinorWindowKelly extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(MinorWindowKelly.class);
     
     //testOptions
-    boolean twoWayViterbi= true;
-    boolean focusBlockViterbi= true;
+    boolean twoWayViterbi= false;
+    boolean focusBlockViterbi= false;
+    double maxErrorRateForFocusViterbi= .2;
+    boolean smashMode= false;
 
 
     public MinorWindowKelly() {
@@ -272,6 +275,7 @@ public class MinorWindowKelly extends AbstractPlugin {
 //                continue;
 //            }
             int countFullLength=0;
+            int focusViterbi=0;
             for (int da = 0; (da < donorAlign.length)&&enoughData ; da++) {
                 int donorOffset=unimpAlign.getSiteOfPhysicalPosition(donorAlign[da].getPositionInLocus(0), donorAlign[da].getLocus(0));
                 int blocks=donorAlign[da].getAllelePresenceForAllSites(0, 0).getNumWords();
@@ -300,22 +304,18 @@ public class MinorWindowKelly extends AbstractPlugin {
                 if(impTaxon.isSegmentSolved()) {
 //                    System.out.printf("VertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
                     countFullLength++; continue;}
-                //Kelly try to do something better
-                if (focusBlockViterbi) {
-                    impTaxon=applyHaplotypesByFocusBlock(taxon, donorAlign[da], donorOffset, regionHypth,  impTaxon, maskedTargetBits, maxHybridErrorRate);
-                    if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
-                }
-                if(impTaxon.isSegmentSolved()) {
-//                    System.out.printf("FocusVertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
-                    countFullLength++; continue;}
-                
-                //resorts to solving block by block, first by inbred, and then by hybrid
+//                //Kelly try to do something better
+//                if (focusBlockViterbi==true) {
+//                    impTaxon=applyHaplotypesByFocusBlock(taxon, donorAlign[da], donorOffset, regionHypth,  impTaxon, maskedTargetBits, maxErrorRateForFocusViterbi);
+//                    if(impTaxon.isSegmentSolved()) {focusViterbi++; continue;}
+//                }
+                 //resorts to solving block by block, first by inbred, and then by hybrid
                 if(inbredNN) {
                     impTaxon=applyBlockNN(impTaxon, taxon, donorAlign[da], donorOffset, regionHypth, hybridNN, maskedTargetBits, 
                             minMinorCnt, maxHybridErrorRate, donorIndices);
                 }   
             }          
-            sb.append(String.format("Viterbi:%d BlocksSolved:%d ", countFullLength, impTaxon.getBlocksSolved()));
+            sb.append(String.format("Viterbi:%d FocusViterbi:%d BlocksSolved:%d ", countFullLength, focusViterbi, impTaxon.getBlocksSolved()));
             int[] unk=countUnknownAndHets(impTaxon.resolveGeno);
             sb.append(String.format("Unk:%d PropMissing:%g ", unk[0], (double)unk[0]/(double)mna.getSiteCount()));
             sb.append(String.format("Het:%d PropHet:%g ", unk[1], (double)unk[1]/(double)mna.getSiteCount()));
@@ -348,7 +348,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     
      public Alignment[] loadDonors(String donorFileRoot){
         File theDF=new File(donorFileRoot);
-        String prefilter=theDF.getName().split("_gX.")[0]+"_gc"; //grabs the left side of the file
+        String prefilter=theDF.getName().split(".gX.")[0]+".gc"; //grabs the left side of the file
         String prefilterOld=theDF.getName().split("s\\+")[0]+"s"; //grabs the left side of the file
         ArrayList<File> d=new ArrayList<File>();
         for (File file : theDF.getParentFile().listFiles()) {
@@ -402,13 +402,13 @@ public class MinorWindowKelly extends AbstractPlugin {
         int blocks=maskedTargetBits[0].getNumWords();
         //do flanking search 
         if(testing==1) System.out.println("Starting hybrid search by focus block");
-        int[] d=getAllBestDonorsAcrossChromosome(regionHypth,5);
-        int blocksSolved= 0;
+        int prevBlockSolved= impT.getBlocksSolved();
         for (int block = 0; block < blocks; block++) {
+            int[] d= getUniqueDonorsForBlock(regionHypth,block);//get the donor indices for that block from regionHypoth
             int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), block, minMinorCnt);
             if(resultRange==null) continue; //no data in the focus Block
-            DonorHypoth[] best2donors=getBestHybridDonors(taxon, maskedTargetBits[0].getBits(),
-                  maskedTargetBits[1].getBits(), resultRange[0], resultRange[2], block, donorAlign, d, d, true);
+            DonorHypoth[] best2donors=getBestHybridDonors(taxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
+                  maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], block, donorAlign, d, d, true);
             if(testing==1) System.out.println(Arrays.toString(best2donors));
             ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
             for (DonorHypoth dh : best2donors) {
@@ -420,12 +420,12 @@ public class MinorWindowKelly extends AbstractPlugin {
                 }
             }
             if(goodDH.isEmpty()) continue;
-            blocksSolved++;
             DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
             for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
             impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
         }
-        if (blocksSolved>blocks/4) impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
+        if (impT.getBlocksSolved()-prevBlockSolved>blocks/8) impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
+        System.out.println(impT.getBlocksSolved()-prevBlockSolved+" blocks solved out of "+blocks);
         return impT;
     }  
         
@@ -534,7 +534,50 @@ public class MinorWindowKelly extends AbstractPlugin {
                 focusBlockdone++;
                 impT.incBlocksSolved();
                 inbred++;
-            }  else {
+                
+            }  else if (focusBlockViterbi&&(regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()>maximumInbredError)){ //go into focus block viterbi
+                int[] d= getUniqueDonorsForBlock(regionHypth,focusBlock);//get the donor indices for that block from regionHypoth
+                int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
+                if(resultRange==null) {noData++; continue; } //no data in the focus Block
+                //search for the best hybrid donors for a segment
+                DonorHypoth[] best2donors=getBestHybridDonors(targetTaxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
+                    maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], focusBlock, donorAlign, d, d, true);
+                
+                ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
+                for (DonorHypoth dh : best2donors) {
+                    if((dh!=null)&&(dh.getErrorRate()<maxErrorRateForFocusViterbi)) {
+                        if(dh.isInbred()==false){
+                            DonorHypoth useDH=getStateBasedOnViterbi(dh, donorOffset, donorAlign, true);
+                            if(useDH!=null) goodDH.add(dh);
+                        }
+                    }
+                }
+                if(goodDH.isEmpty()&&smashMode) {//smash mode goes into hybrid block NN
+                    //search for the best hybrid donors for a segment
+                    if(hybridMode&&(regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()>maximumInbredError)) {
+                        long[] mjTRange=maskedTargetBits[0].getBits(resultRange[0],resultRange[2]);
+                        long[] mnTRange=maskedTargetBits[1].getBits(resultRange[0],resultRange[2]);
+                        regionHypth[focusBlock]=getBestHybridDonors(targetTaxon, mjTRange, mnTRange, resultRange[0],resultRange[2], 
+                                focusBlock, donorAlign, regionHypth[focusBlock], false, donorIndices);
+                    }
+              //      if((regionHypth[focusBlock][0]!=null)) System.out.printf("%d %d %g %n",targetTaxon, focusBlock, regionHypth[focusBlock][0].getErrorRate() );
+                    if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maxHybridErrorRate)) {
+                        setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT);
+                        focusBlockdone++;
+                        impT.incBlocksSolved();
+                        hybrid++;
+                    }
+                } else if (goodDH.isEmpty()) {noData++; continue; 
+                } else {
+                    DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+                    for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+                    impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
+                    focusBlockdone++;
+                    impT.incBlocksSolved();
+                    hybrid++;
+                }
+                
+            }  else if (!focusBlockViterbi) {//keep this here for now to compare with base imputation
                 int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),
                         maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
                 if(resultRange==null) {noData++; continue; }//no data in the focus Block
@@ -551,18 +594,15 @@ public class MinorWindowKelly extends AbstractPlugin {
                     focusBlockdone++;
                     impT.incBlocksSolved();
                     hybrid++;
-                } else {
-                    if(regionHypth[focusBlock][0]==null) {noData++;} 
-//                    else{
-//                        System.out.println(regionHypth[focusBlock][0].getErrorRate());
-//                    }
                 }
-            }
+                    
+            } else {if(regionHypth[focusBlock][0]==null) noData++;}
         }
         
         int leftNullCnt=0;
         for (DonorHypoth[] dh : regionHypth) {if(dh[0]==null) leftNullCnt++;}
-        if(testing==1) System.out.printf("targetTaxon:%d hybridError:%g block:%d focusBlockdone:%d null:%d inbredDone:%d hybridDone:%d noData:%d %n",
+        //if(testing==1) 
+        System.out.printf("targetTaxon:%d hybridError:%g block:%d focusBlockdone:%d null:%d inbredDone:%d hybridDone:%d noData:%d %n",
                 targetTaxon, maxHybridErrorRate, blocks,focusBlockdone, leftNullCnt, inbred, hybrid, noData);
         return impT;
     }
@@ -811,6 +851,18 @@ public class MinorWindowKelly extends AbstractPlugin {
         return result;
     }
   
+    private int[] getUniqueDonorsForBlock(DonorHypoth[][] regionHypth, int block) {//change so only adding those donors that are not identical for target blocks
+        TreeSet<Integer> donors= new TreeSet<>();
+        for (int h = 0; h < regionHypth[block].length; h++) {
+            if (regionHypth[block][h]!=null) {
+                donors.add(regionHypth[block][h].donor1Taxon);
+                donors.add(regionHypth[block][h].donor2Taxon);
+            }
+        }
+        if (donors.isEmpty()) return null;
+        int[] result= ArrayUtils.toPrimitive(donors.toArray(new Integer[donors.size()]));
+        return result;
+    }
     private DonorHypoth[] getBestHybridDonors(int targetTaxon, long[] mjT, long[] mnT, 
             int startBlock, int endBlock, int focusBlock, Alignment donorAlign, DonorHypoth[] inbredHypoth, 
             boolean compareDonorDist, int[] donorIndices) {

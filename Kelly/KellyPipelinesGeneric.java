@@ -104,11 +104,15 @@ public class KellyPipelinesGeneric {
 //       String dir= "//Users/kelly/Documents/GBS/Imputation/SmallFiles/";
 //       String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
 //       String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
-       String masked= dir+"AllZeaGBSv27StrictSubsetByAmesnoEPorGEM._masked_Depth5_Denom17.hmp.h5";
-       String keyFile= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._maskKey_Depth5_Denom17.hmp.h5";
-       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";//standard
-//       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMerge4k_s19.hmp.h5.hmp.txt";//with HMM inbred landraces
-       
+       String masked= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11chr1.hmp.h5";
+       String keyFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11chr1.hmp.h5";
+//       String masked= dir+"AllZeaGBSv27StrictSubsetByAmes408._masked_Depth5_Denom11chr1.hmp.h5";
+//       String keyFile= dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom11chr1.hmp.h5";
+//       String masked= dir+"AllZeaGBSv27StrictSubsetByAmesnoEPorGEM._masked_Depth5_Denom17.hmp.h5";
+//       String keyFile= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._maskKey_Depth5_Denom17.hmp.h5";
+//       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";//standard
+//       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMergeInbredLandrace8k.gX.hmp.txt";//with HMM inbred landraces
+       String donor= dir+"donors/AllZeaGBSv27_HaplotypeMerge8k.gX.hmp.txt";
 //       String[] minMnCnt= {"15","20","25","30"};
 //       String[] mxInbErr= {".01",".02",".03",".04",".05"};
 //       String[] mxHybErr= {".003",".004",".005",".008",".01"};
@@ -119,7 +123,7 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= masked.substring(0, masked.indexOf("_masked")-1)+"_StdDonor_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k];   
+            String out= masked.substring(0, masked.indexOf("_masked")-1)+"Depth5Denom11chr1_8kStdDonorKellyFocusBase_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
             String[] testArgs = new String[] {
                  "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     donor, //Donor haplotype files 'c+s+' to denote sections\n"
@@ -137,7 +141,7 @@ public class KellyPipelinesGeneric {
                  "-mnTestSite",    "20",  //Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
             };
             String[] args = testArgs;
-            MinorWindowViterbiImputationPlugin plugin = new MinorWindowViterbiImputationPlugin();
+            MinorWindowKelly plugin = new MinorWindowKelly();
             plugin.setParameters(args);
             plugin.performFunction(null);
 //            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");

@@ -4,8 +4,11 @@
  */
 package Kelly;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
-import java.io.FileInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.util.*;
 import net.maizegenetics.pal.alignment.*;
@@ -15,6 +18,7 @@ import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.prefs.TasselPrefs;
 import org.apache.commons.lang.ArrayUtils;
+import org.biojava3.core.util.Equals;
 
 /**
  *
@@ -97,73 +101,110 @@ public class ParseAlignmentKelly {
    //part of the name is compared) or strict, where only identical sample preps are selected. Print to hmp (h5==false) or hdf5 (h5==true)
    //if remove taxa equals true, the taxa listed in the text file will be removed and the rest returned, otherwise selected
    public static void subsetHDF5FromTxt(String inFileRoot, String taxaNamesRoot, boolean permissive, boolean removeTaxa, boolean keepDepth) {
+       String[] nameArray= KellyUtils.readInTxtNames(dir+taxaNamesRoot+".txt", permissive);
        MutableNucleotideAlignmentHDF5 mnah5= (MutableNucleotideAlignmentHDF5)ImportUtils.readGuessFormat(dir+inFileRoot+".hmp.h5", false);
        mnah5.optimizeForTaxa(null);
-       Set<String> names= new HashSet<String>();
        IdGroup h5IDs= mnah5.getIdGroup();
        if (permissive==true) System.out.println("permissive mode on (matches only the first part of the name before the first colon - will select duplicate samples of taxa)");
        if (removeTaxa==true) System.out.println("removeTaxa mode on. will remove taxa included in text file from input h5");
        if (keepDepth==true) System.out.println("output file will retain depth information");
        else System.out.println("output file will not retain depth information");
-        try {
-            FileInputStream fis= new FileInputStream(dir+taxaNamesRoot+".txt");
-            Scanner scanner= new Scanner(fis);
-            do {
-                String next= scanner.nextLine();
-                if (permissive==true) names.add(next.substring(0, next.indexOf(":")));
-                else names.add(next);
-            }
-            while (scanner.hasNextLine());
-            scanner.close();
-            fis.close();
-        }
-        catch (Exception e) {
-        }
-        ArrayList<String> sortNames= new ArrayList<String>();
-        sortNames.addAll(names);
-        Collections.sort(sortNames);
-        String[] nameArray= Arrays.copyOf(sortNames.toArray(),sortNames.size(),String[].class);
-        ArrayList<Identifier> keep= new ArrayList<Identifier>();
-        for (int h5Taxa = 0; h5Taxa < h5IDs.getIdCount(); h5Taxa++) {
-            String currTaxon= permissive==true?h5IDs.getIdentifier(h5Taxa).getName():h5IDs.getIdentifier(h5Taxa).getFullName();
-            if (Arrays.binarySearch(nameArray, currTaxon)>-1) keep.add(h5IDs.getIdentifier(h5Taxa));
-        }
-        SimpleIdGroup subIDs= new SimpleIdGroup(keep);
-        Alignment subset;
-        if (removeTaxa==false) {
-            subset= FilterAlignment.getInstance(mnah5, subIDs);
-            System.out.println("subsetting "+subset.getSequenceCount()+" taxa from "+h5IDs.getIdCount()+" taxa based on "+sortNames.size()+" unique names");
-            if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-            else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-            System.out.println("writing to hdf5");
-        }
-        else {
-            subset= FilterAlignment.getInstanceRemoveIDs(mnah5, subIDs);
-            System.out.println("removing "+subIDs.getIdCount()+" taxa from "+mnah5.getSequenceCount()+" taxa based on "+sortNames.size()+" unique names\n"+subset.getSequenceCount()+" taxa remain");
-            if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-            else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-            System.out.println("writing to hdf5");
-        }
+       ArrayList<Identifier> keep= new ArrayList<Identifier>();
+       for (int h5Taxa = 0; h5Taxa < h5IDs.getIdCount(); h5Taxa++) {
+           String currTaxon= permissive==true?h5IDs.getIdentifier(h5Taxa).getName():h5IDs.getIdentifier(h5Taxa).getFullName();
+           if (Arrays.binarySearch(nameArray, currTaxon)>-1) keep.add(h5IDs.getIdentifier(h5Taxa));
+       }
+       SimpleIdGroup subIDs= new SimpleIdGroup(keep);
+       Alignment subset;
+       if (removeTaxa==false) {
+           subset= FilterAlignment.getInstance(mnah5, subIDs);
+           System.out.println("subsetting "+subset.getSequenceCount()+" taxa from "+h5IDs.getIdCount()+" taxa based on "+nameArray.length+" unique names");
+           if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           System.out.println("writing to hdf5");
+       }
+       else {
+           subset= FilterAlignment.getInstanceRemoveIDs(mnah5, subIDs);
+           System.out.println("removing "+subIDs.getIdCount()+" taxa from "+mnah5.getSequenceCount()+" taxa based on "+nameArray.length+" unique names\n"+subset.getSequenceCount()+" taxa remain");
+           if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           System.out.println("writing to hdf5");
+       }
    }
    
    public static void subsetAlignmentByFocusSites(String inFile, String outAdd, int[][] positions, int windowSize, boolean h5) {//the rows of positions should be physical position, the columns loci
        Alignment a= ImportUtils.readGuessFormat(inFile, true);
-       ArrayList<Integer> sub= new ArrayList<Integer>();
-       int[] allPos= a.getPhysicalPositions();
+       ArrayList<Integer> all= new ArrayList<Integer>();
        for (int pos = 0; pos < positions.length; pos++) {
-           int[] locusPos= Arrays.copyOfRange(allPos, a.getLocus(String.valueOf(positions[pos][1])).getStart(),a.getLocus(String.valueOf(positions[pos][1])).getEnd());
-           int closestSite= Arrays.binarySearch(locusPos, positions[pos][0]);
-           if (closestSite<0) closestSite= -closestSite;
-           for (int site = closestSite-windowSize; site < closestSite+windowSize; site++) {
+           ArrayList<Integer> sub= new ArrayList<Integer>();
+           Locus currLocus= a.getLocus(String.valueOf(positions[pos][1]));
+           int[] locusPos= Arrays.copyOfRange(a.getPhysicalPositions(), currLocus.getStart(),currLocus.getEnd());
+           int closestSite= Math.abs(Arrays.binarySearch(locusPos, positions[pos][0]))+currLocus.getStart()-1;
+           System.out.println("Closest site position to target site "+positions[pos][0]+" in locus "+positions[pos][1]+" is "+a.getPositionInLocus(closestSite)+" ("+closestSite+")");
+           for (int site = Math.max(0,closestSite-windowSize); site < Math.min(closestSite+windowSize,a.getStartAndEndOfLocus(currLocus)[1]-1); site++) {
                sub.add(site);
+               all.add(site);
+           }
+           if (h5==true) continue;
+           else {
+               int[] subSites=  ArrayUtils.toPrimitive(sub.toArray(new Integer[sub.size()]));
+               Alignment subA= FilterAlignment.getInstance(a, subSites);
+               if (subA.getLocus(0)!=currLocus) {
+                   System.out.println("Locus not conveyed to filter alignment. Set new");
+                   MutableNucleotideAlignment mnaSub= MutableNucleotideAlignment.getInstance(subA);
+                   for (int site = 0; site < mnaSub.getSiteCount(); site++) {mnaSub.setLocusOfSite(site, currLocus);}
+                   ExportUtils.writeToHapmap(mnaSub, true, inFile.substring(0, inFile.indexOf(".hmp"))+outAdd+"subString"+windowSize+"_c"+mnaSub.getLocusName(0)+".hmp.txt.gz", '\t', null);
+                   continue;
+               }
+               ExportUtils.writeToHapmap(subA, true, inFile.substring(0, inFile.indexOf(".hmp"))+outAdd+"subString"+windowSize+"_c"+subA.getLocusName(0)+".hmp.txt.gz", '\t', null);
            }
        }
-       int[] subSites= ArrayUtils.toPrimitive(sub.toArray(new Integer[sub.size()]));
-       Alignment subA= FilterAlignment.getInstance(a, subSites);
-       if (h5==true) ExportUtils.writeToMutableHDF5(subA, inFile.substring(0, inFile.indexOf(".hmp"))+outAdd+"subString"+windowSize, null, true);
-       else ExportUtils.writeToHapmap(subA, true, inFile.substring(0, inFile.indexOf(".hmp"))+outAdd+"subString"+windowSize+".hmp.txt.gz", '\t', null);
+       if (h5==true) {
+           int[] subSites=  ArrayUtils.toPrimitive(all.toArray(new Integer[all.size()]));
+           ExportUtils.writeToMutableHDF5(a, inFile.substring(0, inFile.indexOf(".hmp"))+outAdd+"subString"+windowSize, subSites);
+       }
    }
    
+   //donor file root should contain ".gX." to represent the chromosome and segment ie c1s4
+   public static void findSubsetDonor(String donorFile, String matchFile) {
+       Alignment match= ImportUtils.readGuessFormat(matchFile, true);
+       File theDF=new File(donorFile);
+       String prefilter=theDF.getName().split(".gX.")[0]+".gc"; //grabs the left side of the file
+       String prefilterOld=theDF.getName().split("s\\+")[0]+"s"; //grabs the left side of the file
+       ArrayList<String> d=new ArrayList<String>();
+       for (File file : theDF.getParentFile().listFiles()) {
+            if(file.getName().equals(theDF.getName())) {d.add(file.toString());}
+            if(file.getName().startsWith(prefilter)) {d.add(file.toString());}
+            if(file.getName().startsWith(prefilterOld)) {d.add(file.toString());}
+        }
+        ArrayList<Alignment> aligns= new ArrayList<>();
+        for (String tryFile:d){
+            Alignment donorAlign=ImportUtils.readGuessFormat(tryFile, true);
+            if (Arrays.binarySearch(match.getLoci(),donorAlign.getLoci()[0])<0) continue;
+            else for (int pos:donorAlign.getPhysicalPositions()) {
+                if (Arrays.binarySearch(match.getPhysicalPositions(),pos)<0) continue;
+                else {
+                    aligns.add(donorAlign);
+                    break;
+                }
+            }
+        }
+        for (Alignment don:aligns) {
+            String outFileName= donorFile.substring(0, donorFile.indexOf(".gX"))+"MatchTo"+matchFile.substring(matchFile.lastIndexOf('/'), matchFile.lastIndexOf(".hmp.txt"))+".gc"+don.getLoci()[0]+"s"+aligns.indexOf(don)+".hmp.txt";
+            ArrayList<Integer> sub= new ArrayList<>();
+            for (int matchPos:match.getPhysicalPositions()) {if (Arrays.binarySearch(don.getPhysicalPositions(), matchPos)>-1) sub.add(matchPos);}
+            int[] subSites= ArrayUtils.toPrimitive(sub.toArray(new Integer[sub.size()]));
+            Alignment outDonor= FilterAlignment.getInstance(don, subSites);
+            if (Equals.equal(outDonor.getLoci(),don.getLoci())==false) {
+                MutableNucleotideAlignment outMnaDonor= MutableNucleotideAlignment.getInstance(outDonor);
+                for (int site = 0; site < outMnaDonor.getSiteCount(); site++) {outMnaDonor.setLocusOfSite(site, don.getLoci()[0]);}
+                ExportUtils.writeToHapmap(outMnaDonor, true, outFileName, '\t', null);
+                continue;
+            }
+            ExportUtils.writeToHapmap(outDonor, true, outFileName, '\t', null);
+        }
+        
+   }
    //cuts up the genome into chunks and outputs delimited text with Major==1, Minor==2, Het==3. Missing==4
    public static void outputCodedTabTextForDong(String inFile, int chunkSize, int howManyInOne, String delimiter) {
        MutableNucleotideAlignmentHDF5 a= MutableNucleotideAlignmentHDF5.getInstance(inFile);
@@ -189,10 +230,42 @@ public class ParseAlignmentKelly {
            
            startSite+= size;
         }
-       
-       
-       
    }
+   
+   public static void unphasedUnrelatedForBeagle(String inFileName) {
+       Alignment a= ImportUtils.readGuessFormat(inFileName, true);
+       Locus[] allLoci= a.getLoci();
+       for (Locus currLocus:allLoci) {
+           try {
+                File outputFile= new File(inFileName.substring(0, inFileName.indexOf(".hmp"))+"Beagle_c"+currLocus.getName()+".txt");
+                DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+                outStream.writeBytes("I\tid");
+                for (int taxa = 0; taxa < a.getSequenceCount(); taxa++) {outStream.writeBytes("\t"+a.getFullTaxaName(taxa));}
+                for (int site = currLocus.getStart(); site < currLocus.getEnd()+1; site++) {
+                    outStream.writeBytes("\nM\tl"+a.getLocusName(site)+"p"+a.getPositionInLocus(site));
+                    for (int taxa = 0; taxa < a.getSequenceCount(); taxa++) {
+                        if (a.isHeterozygous(taxa, site)==true) outStream.writeBytes("\t"+a.getBaseAsStringArray(taxa, site)[0]+"/"+a.getBaseAsStringArray(taxa, site)[1]);
+                        else outStream.writeBytes("\t"+a.getBaseAsString(taxa, site)+"/"+a.getBaseAsString(taxa, site));
+                    }
+                }
+           }
+           catch (Exception e) {
+           System.out.println(e);
+           }
+       }
+   }
+   
+   public static void subsetChrKeepAllSites(String inFile, String chr) {
+       String outFile= inFile.substring(0, inFile.indexOf(".hmp"))+"chr"+chr+".hmp.h5";
+       Alignment a= ImportUtils.readGuessFormat(inFile, true);
+       int[] startEnd = a.getStartAndEndOfLocus(a.getLocus(chr));
+       int[] keep= new int[startEnd[1]-startEnd[0]];
+       for (int i = 0; i < keep.length; i++) {keep[i]= startEnd[0]+i;}
+       FilterAlignment fa= FilterAlignment.getInstance(a, startEnd[0], startEnd[1]);
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(fa);
+       ExportUtils.writeToMutableHDF5(mna, outFile);
+   }
+   
    public static void main (String args[]) {
        TasselPrefs.putAlignmentRetainRareAlleles(false);
 //       dir= "";
@@ -200,22 +273,52 @@ public class ParseAlignmentKelly {
 //       String refFileName= dir+"";
 //       checkSitesForIdentityByPosition(inFileName,refFileName,.1,.1);
        
-       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
-       //String textToSubsetRoot= "Ames(no EP or GEM)";
-       String textToSubsetRoot= "12S_RIMMA_Span_SEED";
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
+//       //String textToSubsetRoot= "Ames(no EP or GEM)";
+//       String textToSubsetRoot= "12S_RIMMA_Span_SEED";
+       String textToSubsetRoot= "Ames380";
        String inFileNameRoot= "AllZeaGBSv27";
-       //imputation subset for carotenoids (Ames inbreds and also 12S, RIMMA, spanish landraces)
-//       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false, true);
-       //subset out landraces to replace with those inbred by HMM
-       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,true,true, false);
+//       //imputation subset for carotenoids (Ames inbreds and also 12S, RIMMA, spanish landraces)
+////       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false, true);
+//       //subset out landraces to replace with those inbred by HMM
+//       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,true,true, false);
+       //subset 380 inbreds from Ames (randomized in excel)
+       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false,false);
        
-//       String inFileName= "dir+AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//       //filter alignment subsetting doesn't work for h5 mutable alignments
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+////       String[] inFileName= new String[] {dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11.hmp.h5",
+////       dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11.hmp.h5",
+////       dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._masked_Depth5_Denom11.hmp.h5",
+////       dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._maskKey_Depth5_Denom11.hmp.h5"};
+////       String[] inFileName=  new String[] {dir+"AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED.hmp.h5"};
+//       String[] inFileName=  new String[] {dir+"AllZeaGBSv27.hmp.h5"};
 //       int[][] carotenoid= new int[][]{{86833000,1},{44444500,2},{82019000,6},{138886000,8}};//Lut1,zeaxanthin epoxidase,Y1,lycE
-//       subsetAlignmentByFocusSites(inFileName,"Carotenoid",carotenoid,1000,true);
+//       for (String name:inFileName) {subsetAlignmentByFocusSites(name,"Carotenoid",carotenoid,2000,false);}
        
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
 //       String h5= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom17.hmp.h5";
 //       outputCodedTabTextForDong(h5, 3968, 10, "\t");
+       
+//       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+//       String inFile= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11CarotenoidsubString1000.hmp.h5";
+////       String inFile= "AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._masked_Depth5_Denom11CarotenoidsubString1000.hmp.h5";
+//       unphasedUnrelatedForBeagle(inFile);
+       
+//       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
+//       String donorRoot= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMergeInbredLandrace8k";
+//       String matchFile= dir+"carotenoid/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11CarotenoidsubString2000_cX.hmp.txt.gz";
+//       findSubsetDonor(donorRoot, matchFile);
+       
+//       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
+////       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+////       String[] inFile= new String[]{dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11.hmp.h5",
+////           dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11.hmp.h5"};
+//       String[] inFile= new String[]{dir+"AllZeaGBSv27StrictSubsetByAmes408._masked_Depth5_Denom11.hmp.h5",
+//           dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom11.hmp.h5"};
+//       String chr= "1";
+//       for (String in:inFile) {subsetChrKeepAllSites(in, chr);}
    }
     
 }
