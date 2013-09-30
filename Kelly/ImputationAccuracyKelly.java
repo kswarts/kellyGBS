@@ -788,19 +788,29 @@ public class ImputationAccuracyKelly {
 ////        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
 ////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 ////        
-        depth= 5;
-        maskDenom= 17;
-        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-        
+        fileToMask= dir+"AllZeaGBS_v2.7wDepthm.hmp.h5";
         depth= 5;
         maskDenom= 11;
-        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
+        
+        fileToMask= dir+"AllZeaGBS_v2.7wDepthw.hmp.h5";
+        depth= 5;
+        maskDenom= 17;
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
+        
+//        depth= 5;
+//        maskDenom= 17;
+//        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+//        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+//        
+//        depth= 5;
+//        maskDenom= 11;
+//        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+//        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 //        
 //        depth= 5;
 //        maskDenom= 11;
