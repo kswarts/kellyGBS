@@ -150,6 +150,46 @@ public class ImputationAccuracyKelly {
         }
     }
     
+    //for depths 4 or more, requires hets to be called by more than one for less depth allele
+    public static void maskBaseFileByDepth(String depthFile, int depthToMask, int maskDenom, boolean exportDepth) {
+        System.out.println("Depth file: "+depthFile);
+        System.out.println("Site depth to mask: "+depthToMask);
+        System.out.println("Divisor for physical positions to be masked: "+maskDenom);
+        MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(depthFile);
+        System.out.println("Generate file to mask");
+        String outMasked= depthFile.substring(0, depthFile.length()-7)+"_masked_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.h5";
+        String outKey= depthFile.substring(0, depthFile.length()-7)+"_maskKey_Depth"+depthToMask+"_Denom"+maskDenom+".hmp.h5";
+        ExportUtils.writeToMutableHDF5(mnah5,outMasked, null, exportDepth);
+        ExportUtils.writeToMutableHDF5(mnah5,outKey, null, false);
+        MutableNucleotideAlignmentHDF5 mna= MutableNucleotideAlignmentHDF5.getInstance(outMasked);
+        System.out.println("read back in maskedFile: "+outMasked);
+        MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(outKey);
+        System.out.println("read back in keyFile: "+outKey);
+        int cnt= 0;
+        int taxaCnt= 0;
+        System.out.println("Starting mask...");
+        for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
+            for (int site = 0; site < mna.getSiteCount(); site++) {
+                key.setBase(taxon, site, diploidN);
+                byte[] currDepth= mnah5.getDepthForAlleles(taxon, site);
+                int[] currMinMaj= getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site));
+                if (getReadDepthForAlleles(currDepth,currMinMaj)==depthToMask) {
+                    if ((depthToMask>3&&((getReadDepthForAlleles(currDepth,currMinMaj[0])==1)||(getReadDepthForAlleles(currDepth,currMinMaj[1])!=1)))) continue;
+                    if (mnah5.getPositionInLocus(site)%maskDenom==0) {
+                        mna.setBase(taxon, site, diploidN);
+                        key.setBase(taxon, site, mnah5.getBase(taxon, site));
+                        taxaCnt++;
+                        cnt++;
+                    }
+                }   
+            }
+            System.out.println(taxaCnt+" sites masked for "+mna.getTaxaName(taxon));
+        }
+        System.out.println(cnt+" sites masked at a depth of "+depthToMask+" (site numbers that can be divided by "+maskDenom+")");
+        mna.clean();
+        key.clean();
+    }
+    
     //returns an array the length of key.getSiteCount() that contains the MAF class of the donor file or -1 if not included
     public static int[] readInMAFFile (String donorMAFFile, Alignment key, double[] MAFClass) {
         int[] MAF= new int[key.getSiteCount()];
@@ -775,28 +815,35 @@ public class ImputationAccuracyKelly {
 //                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.hmp.txt",null),
 //                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2.hmp.txt.gz",null),true, -1, .6, .005, .2, "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.Accuracy55k.txt");
         
+        //mask input depth file using depth
+        dir= "/Users/kellyadm/Desktop/Imputation2.7/";//laptop
+        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
+        int depth= 5;
+        int maskDenom= 17;
+        maskBaseFileByDepth(h5Depth, depth, maskDenom, true);
+//        
 ////         //mask using depth. requires an hdf5 file with depth
         dir= "/home/kls283/Documents/Imputation/";//cbsugbs
-        String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
-//        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
+//        String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
+        dir= "/Users/kellyadm/Desktop/Imputation2.7/";//laptop
 //        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-        int depth= 5;
-        int maskDenom= 3;
+//        String fileToMask= dir+"AllZeaGBS_v2.7_SeqToGenos_part14m.hmp.h5";
+////        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+////        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+//        int depth= 5;
+//        int maskDenom= 3;
 ////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 ////        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
 ////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-////        
-        fileToMask= dir+"AllZeaGBS_v2.7wDepthm.hmp.h5";
-        depth= 5;
-        maskDenom= 11;
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
-        
-        fileToMask= dir+"AllZeaGBS_v2.7wDepthw.hmp.h5";
-        depth= 5;
-        maskDenom= 17;
-        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
+//        fileToMask= dir+"AllZeaGBS_v2.7wDepthm.hmp.h5";
+//        depth= 5;
+//        maskDenom= 11;
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
+//        
+//        fileToMask= dir+"AllZeaGBS_v2.7wDepthw.hmp.h5";
+//        depth= 5;
+//        maskDenom= 17;
+//        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, true);
         
 //        depth= 5;
 //        maskDenom= 17;
