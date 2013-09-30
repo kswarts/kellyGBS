@@ -169,20 +169,26 @@ public class ImputationAccuracyKelly {
         int taxaCnt= 0;
         System.out.println("Starting mask...");
         for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
+            byte[] taxonMask= new byte[mna.getSiteCount()];
+            byte[] taxonKey= new byte[mna.getSiteCount()];
             for (int site = 0; site < mna.getSiteCount(); site++) {
-                key.setBase(taxon, site, diploidN);
+                taxonKey[site]= diploidN;
+                taxonMask[site]= mnah5.getBase(taxon, site);
                 byte[] currDepth= mnah5.getDepthForAlleles(taxon, site);
                 int[] currMinMaj= getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site));
                 if (getReadDepthForAlleles(currDepth,currMinMaj)==depthToMask) {
                     if ((depthToMask>3&&((getReadDepthForAlleles(currDepth,currMinMaj[0])==1)||(getReadDepthForAlleles(currDepth,currMinMaj[1])!=1)))) continue;
                     if (mnah5.getPositionInLocus(site)%maskDenom==0) {
-                        mna.setBase(taxon, site, diploidN);
-                        key.setBase(taxon, site, mnah5.getBase(taxon, site));
+                        taxonMask[site]= diploidN;
+                        taxonKey[site]= mnah5.getBase(taxon, site);
                         taxaCnt++;
                         cnt++;
                     }
                 }   
             }
+            mna.setAllBases(taxon, taxonMask);
+            key.setAllBases(taxon, taxonKey);
+            
             System.out.println(taxaCnt+" sites masked for "+mna.getTaxaName(taxon));
         }
         System.out.println(cnt+" sites masked at a depth of "+depthToMask+" (site numbers that can be divided by "+maskDenom+")");
@@ -817,6 +823,7 @@ public class ImputationAccuracyKelly {
         
         //mask input depth file using depth
         dir= "/Users/kellyadm/Desktop/Imputation2.7/";//laptop
+        dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/parts/";
         String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
         int depth= 5;
         int maskDenom= 17;
