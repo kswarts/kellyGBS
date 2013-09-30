@@ -166,9 +166,9 @@ public class ImputationAccuracyKelly {
         MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(outKey);
         System.out.println("read back in keyFile: "+outKey);
         int cnt= 0;
-        int taxaCnt= 0;
         System.out.println("Starting mask...");
         for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
+            int taxaCnt= 0;
             byte[] taxonMask= new byte[mna.getSiteCount()];
             byte[] taxonKey= new byte[mna.getSiteCount()];
             for (int site = 0; site < mna.getSiteCount(); site++) {
