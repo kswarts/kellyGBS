@@ -7,11 +7,14 @@ package Kelly;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Scanner;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
@@ -24,14 +27,13 @@ import net.maizegenetics.pal.ids.IdGenerator;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.prefs.TasselPrefs;
-
+import org.apache.commons.lang.ArrayUtils;
 
 /**
  *
- * @author kellyadm
+ * @author kls283
  */
 public class ImputationAccuracyKelly {
-    
     public static String dir;
     public static boolean[][] knownHetMask;
     public static boolean[][] calledHomoMajMask;
@@ -148,7 +150,33 @@ public class ImputationAccuracyKelly {
         }
     }
     
-    public static void accuracyDepth(String keyFile, String imputedFileName) {
+    //returns an array the length of key.getSiteCount() that contains the MAF class of the donor file or -1 if not included
+    public static int[] readInMAFFile (String donorMAFFile, Alignment key, double[] MAFClass) {
+        int[] MAF= new int[key.getSiteCount()];
+        for (int i = 0; i < MAF.length; i++) {MAF[i]= -1;} //initialize to -1
+        try {
+            FileInputStream fis= new FileInputStream(donorMAFFile);
+            Scanner scanner= new Scanner(fis);
+            do {
+                String next= scanner.nextLine();
+                if (next.isEmpty()) break;
+                String[] vals= next.split("\t");
+                int site= key.getSiteOfPhysicalPosition(Integer.parseInt(vals[1]),key.getLocus(Integer.parseInt(vals[0])));
+                if (site<0) continue;
+                int currClass= Arrays.binarySearch(MAFClass, Double.parseDouble(vals[2]));
+                MAF[site]= currClass<0?Math.abs(currClass)-1:currClass;
+            }
+            while (scanner.hasNextLine());
+            scanner.close();
+            fis.close();
+        }
+        catch (Exception e) {
+            System.out.println("Problem reading in taxa names");
+        }
+        return MAF;
+    }
+    
+    public static void accuracyDepth(String keyFile, String imputedFileName, String donorMAFFile, double[] MAFClass) {
         Alignment index = ImportUtils.readGuessFormat(keyFile, false);
         Alignment imputed = ImportUtils.readGuessFormat(imputedFileName, false);
         double[] hetAll = new double[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
@@ -161,6 +189,21 @@ public class ImputationAccuracyKelly {
         System.out.println("Imputed file: "+imputedFileName+"\nKey file: "+keyFile);
         System.out.println("Taxon\tTotalSitesCompared\tNumHets\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tNumMinor\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
                     + "WrongMinor\tNumMajor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor\tOverallError");
+        boolean MAFon= false;
+        double[] hetMAFWrong= null;//MAF taken from donor file
+        double[] minorMAFWrong= null;//MAF taken from donor file
+        double[] hetMAFPart= null;// MAF taken from donor file
+        double[] minorMAFPart= null;//MAF taken from donor file
+        int[] MAF= null;
+        if (donorMAFFile!=null&&MAFClass!=null) {
+            MAFon= true;
+            if (MAFClass[MAFClass.length-1]!=1) ArrayUtils.add(MAFClass, 1);
+            hetMAFWrong= new double[MAFClass.length+1];//MAF taken from donor file
+            minorMAFWrong= new double[MAFClass.length+1];//MAF taken from donor file
+            hetMAFPart= new double[MAFClass.length+1];// MAF taken from donor file
+            minorMAFPart= new double[MAFClass.length+1];//MAF taken from donor file
+            MAF= readInMAFFile(donorMAFFile, index, MAFClass);
+        }
         for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
             for (int site = 0; site < imputed.getSiteCount(); site++) {
                 byte known = index.getBase(taxon, site);
@@ -171,15 +214,35 @@ public class ImputationAccuracyKelly {
                         het[0][taxon]++;
                         if (imp == diploidN) het[3][taxon]++;
                         else if (AlignmentUtils.isEqual(imp, known) == true) het[1][taxon]++;
-                        else if (AlignmentUtils.isHeterozygous(imp) == false && AlignmentUtils.isPartiallyEqual(imp, known) == true) het[2][taxon]++;
-                        else het[4][taxon]++;
+                        else if (AlignmentUtils.isHeterozygous(imp) == false && AlignmentUtils.isPartiallyEqual(imp, known) == true) {
+                            het[2][taxon]++;
+                            if (MAFon) {
+                                if (MAF[site]<0) hetMAFPart[hetMAFPart.length-1]++; else hetMAFPart[MAF[site]]++;
+                            }
+                        }
+                        else {
+                            het[4][taxon]++;
+                            if (MAFon) {
+                                if (MAF[site]<0) hetMAFWrong[hetMAFPart.length-1]++; else hetMAFWrong[MAF[site]]++;
+                            }
+                        }
                     } 
                     else if (index.getBaseArray(taxon, site)[0] == imputed.getMinorAllele(site)) {
                         minor[0][taxon]++;
                         if (imp == diploidN) minor[3][taxon]++;
                         else if (AlignmentUtils.isEqual(imp, known) == true) minor[1][taxon]++;
-                        else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) minor[2][taxon]++;
-                        else minor[4][taxon]++;
+                        else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) {
+                            minor[2][taxon]++;
+                            if (MAFon) {
+                                if (MAF[site]<0) minorMAFPart[minorMAFPart.length-1]++; else minorMAFPart[MAF[site]]++;
+                            }
+                        }
+                        else {
+                            minor[4][taxon]++;
+                            if (MAFon) {
+                                if (MAF[site]<0) minorMAFWrong[minorMAFWrong.length-1]++; else minorMAFWrong[MAF[site]]++;
+                            }
+                        }
                     }
                     else if (index.getBaseArray(taxon, site)[0] == imputed.getMajorAllele(site)) {
                         major[0][taxon]++;
@@ -214,7 +277,15 @@ public class ImputationAccuracyKelly {
             outStream.writeBytes("Total\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / hetAll[0])) + "\t"
                         + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / hetAll[0])) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / minorAll[0])) + "\t"
                         + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / minorAll[0])) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / majorAll[0])) + "\t" 
-                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / majorAll[0]))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0])));
+                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / majorAll[0]))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0]))+"\n");
+            if (MAFon) {
+                outStream.writeBytes("Site MAF of donor file by class:\nClass");
+                for(double i:MAFClass){outStream.writeBytes("\t<"+i);}
+                outStream.writeBytes("\nPartialHets");for(double i:hetMAFPart){outStream.writeBytes("\t"+(hetAll[2]==0?0:df.format(i/(hetAll[2])-hetMAFPart[hetMAFPart.length-1])));}
+                outStream.writeBytes("\nWrongHets");for(double i:hetMAFWrong){outStream.writeBytes("\t"+(hetAll[4]==0?0:df.format(i/(hetAll[4])-hetMAFWrong[hetMAFWrong.length-1])));}
+                outStream.writeBytes("\nMinorToHet");for(double i:minorMAFPart){outStream.writeBytes("\t"+(minorAll[2]==0?0:df.format(i/(minorAll[2])-minorMAFPart[minorMAFPart.length-1])));}
+                outStream.writeBytes("\nWrongMinor");for(double i:minorMAFWrong){outStream.writeBytes("\t"+(minorAll[4]==0?0:df.format(i/(minorAll[4])-minorMAFWrong[minorMAFWrong.length-1])));}
+            }
             System.out.println("TotalByImputed\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / (hetAll[0]))) + "\t"
                         + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / (hetAll[0]-hetAll[3]))) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / (minorAll[0]))) + "\t"
                         + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / (minorAll[0]-minorAll[3]))) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / (majorAll[0]))) + "\t" 
@@ -223,6 +294,13 @@ public class ImputationAccuracyKelly {
                         + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / hetAll[0])) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / minorAll[0])) + "\t"
                         + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / minorAll[0])) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / majorAll[0])) + "\t" 
                         + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / majorAll[0]))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0])));
+            if (MAFon) {
+                System.out.println("Site MAF of donor file by class:\nClass (<=, 0 is invariant)\tPartialhets\tWrongHets\tMinorToHet\tWrongMinor");
+                for(int i= 0;i<hetMAFPart.length-1;i++){
+                    System.out.println(MAFClass[i]+"\t"+(hetAll[2]==0?0:df.format(hetMAFPart[i]/(hetAll[2]-hetMAFPart[hetMAFPart.length-1])))+"\t"+(hetAll[4]==0?0:df.format(hetMAFWrong[i]/(hetAll[4]-hetMAFWrong[hetMAFWrong.length-1])))+
+                            "\t"+(minorAll[2]==0?0:df.format(minorMAFPart[i]/(minorAll[2]-minorMAFPart[minorMAFPart.length-1])))+"\t"+(minorAll[4]==0?0:df.format(minorMAFWrong[i]/(minorAll[4]-minorMAFWrong[minorMAFWrong.length-1]))));
+                }
+            }
             outStream.close();
         } catch (Exception e) {
             System.out.println(e);
@@ -698,31 +776,31 @@ public class ImputationAccuracyKelly {
 //                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2.hmp.txt.gz",null),true, -1, .6, .005, .2, "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.Accuracy55k.txt");
         
 ////         //mask using depth. requires an hdf5 file with depth
-//        dir= "/home/kls283/Documents/Imputation/";//cbsugbs
-//        String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
-////        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
-////        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-////        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-//        int depth= 5;
-//        int maskDenom= 3;
+        dir= "/home/kls283/Documents/Imputation/";//cbsugbs
+        String h5Depth= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
+//        dir= "/Users/kls283/Documents/GBS/Imputation/";//laptop
+//        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
+        String fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+//        String fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        int depth= 5;
+        int maskDenom= 3;
 ////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 ////        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
 ////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 ////        
-////        depth= 5;
-////        maskDenom= 17;
-////        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-////        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-////        
-////        depth= 5;
-////        maskDenom= 11;
-////        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
-////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
-////        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
-////        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        depth= 5;
+        maskDenom= 17;
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        
+        depth= 5;
+        maskDenom= 11;
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM).hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
+        fileToMask= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span.hmp.h5";
+        maskFileByDepth(h5Depth, fileToMask, depth, maskDenom,true, false);
 //        
 //        depth= 5;
 //        maskDenom= 11;
@@ -731,23 +809,26 @@ public class ImputationAccuracyKelly {
 
         
         //run accuracy on depth-masked imputed file. Only system out now.
-        String dir= "//Users/kellyadm/Desktop/Imputation2.7/";
-//        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
-//        String key= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
-//        String imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        accuracyDepth(key, imputed);
-//        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        accuracyDepth(key, imputed);
-//        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor4k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        accuracyDepth(key, imputed);
-//        String key=  dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom17.hmp.h5";
-//        String imputed=  dir+"resultsBaseImputation/AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-        String key=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11chr1.hmp.h5";
-        String imputed=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11chr1.hmp.h5";
-//        accuracyDepth(key, imputed);
-//        imputed=  dir+"results0918/AllZeaGBSv27StrictSubsetByAmes408_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        imputed= dir+"AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8kKellyFRFixed_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-        accuracyDepth(key, imputed);
+//        String dir= "//Users/kellyadm/Desktop/Imputation2.7/";
+////        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+////        String key= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
+////        String imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+////        accuracyDepth(key, imputed);
+////        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+////        accuracyDepth(key, imputed);
+////        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor4k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+////        accuracyDepth(key, imputed);
+////        String key=  dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom17.hmp.h5";
+////        String imputed=  dir+"resultsBaseImputation/AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        String imputed=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_SpanDepth5Denom11chr1_8kStdDonorKellyBase3_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        String key=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11chr1.hmp.h5";
+//        String mafFile= dir+"donors/AllZeaGBSv27_HaplotypeMerge8kMAF.txt";
+//        double[] mafClass= new double[]{0,.05,.10,.20,1}; 
+////        accuracyDepth(key, imputed);
+////        imputed=  dir+"results0918/AllZeaGBSv27StrictSubsetByAmes408_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+////        imputed= dir+"AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8kKellyFRFixed_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        accuracyDepth(key, imputed, mafFile, mafClass);
         
         }
+    
 }

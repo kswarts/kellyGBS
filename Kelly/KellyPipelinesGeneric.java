@@ -116,6 +116,7 @@ public class KellyPipelinesGeneric {
 //       String[] minMnCnt= {"15","20","25","30"};
 //       String[] mxInbErr= {".01",".02",".03",".04",".05"};
 //       String[] mxHybErr= {".003",".004",".005",".008",".01"};
+       double[] mafClass= new double[]{.05,10,20,1};
        String[] minMnCnt= {"20"};
        String[] mxInbErr= {".01"};
        String[] mxHybErr= {".003"};
@@ -123,7 +124,7 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= masked.substring(0, masked.indexOf("_masked")-1)+"Depth5Denom11chr1_8kStdDonorKellyFocusBase_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
+            String out= masked.substring(0, masked.indexOf("_masked")-1)+"Depth5Denom11chr1_8kStdDonorKellyBase3_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
             String[] testArgs = new String[] {
                  "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     donor, //Donor haplotype files 'c+s+' to denote sections\n"
@@ -147,7 +148,7 @@ public class KellyPipelinesGeneric {
 //            MutableNucleotideAlignmentHDF5 outHDF5= MutableNucleotideAlignmentHDF5.getInstance(dir+base+out+".imp.hmp.h5");
 //            ExportUtils.writeToHapmap(outHDF5, true, dir+base+out+".hmp.txt.gz", '\t', null);
             //for depth mask
-            ImputationAccuracy.accuracyDepth(keyFile, out);
+            ImputationAccuracy.accuracyDepth(keyFile, out, donor.substring(0, donor.indexOf(".gX"))+"MAF.txt", mafClass);
             //for mask against 55k
 //            ImputationAccuracy.RunTest(ImportUtils.readFromHapmap(dir+"RIMMA_282_SNP55K_AGPv2_20100513__S45391.chr10_matchTo_RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.1.hmp.txt.gz",null),
 //                    ImportUtils.readFromHapmap(dir+base+out+".hmp.txt",null),

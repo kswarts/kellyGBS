@@ -5,7 +5,10 @@ package Kelly;
 
 
 import java.awt.Frame;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 
 
 import java.util.ArrayList;
@@ -146,7 +149,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     boolean focusBlockViterbi= false;
     double maxErrorRateForFocusViterbi= .2;
     boolean smashMode= false;
-
+    boolean generateMAFFile= true;
 
     public MinorWindowKelly() {
         super(null, false);
@@ -365,8 +368,27 @@ public class MinorWindowKelly extends AbstractPlugin {
             System.out.println("Taxa Optimization Done");
             //createMaskForAlignmentConflicts(unimpAlign,donorAlign[i],true);
         }
+        if (generateMAFFile) generateMAF(donorFileRoot, donorAlign);
     	return donorAlign;
     }
+     //outputs a text file with minor allele frequencies by locus and position in the donor files. for accuracy
+     public void generateMAF(String donorFileRoot, Alignment[] donorAlign) {
+         System.out.println("Generating MAF file for input donor files");
+         try {
+            File outputFile = new File(donorFileRoot.substring(0, donorFileRoot.indexOf(".gX"))+"MAF.txt");
+            DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            for (Alignment don:donorAlign) {
+                for (int site = 0; site < don.getSiteCount(); site++) {
+                    outStream.writeBytes(don.getLocusName(site)+"\t"+don.getPositionInLocus(site)+"\t"+don.getMinorAlleleFrequency(site)+"\n");
+                }
+            outStream.writeBytes("Taxon\tTotalSitesCompared\tNumHets\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tNumMinor\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
+                    + "WrongMinor\tNumMajor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor\tOverallError\n");
+            }
+         }
+         catch (Exception e) {
+             System.out.println("Problem writing MAF file");
+         }
+     }
 
     private ImputedTaxon apply1or2Haplotypes(int taxon, Alignment donorAlign, int donorOffset, 
             DonorHypoth[][] regionHypth, ImputedTaxon impT,
