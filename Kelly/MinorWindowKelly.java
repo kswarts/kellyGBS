@@ -130,6 +130,15 @@ public class MinorWindowKelly extends AbstractPlugin {
                     {.0002,.00005,.00005,.999,.0002},
                     {.0005,.0001,.0003,.0001,.999}
         };
+    //try this transition to optimize hets. the idea is that most of the recombination is ancestral so 
+    //the probability of transitioning to a het should be higher than the probability of transitioning to the other parent
+//    double[][] transition = new double[][] {
+//                    {.999,.0001,.0005,.0001,.0003},
+//                    {.0002,.999,.00005,.00005,.0002},
+//                    {.0002,.00005,.999,.00005,.0002},
+//                    {.0002,.00005,.00005,.999,.0002},
+//                    {.0003,.0001,.0005,.0001,.999}
+//        };
     //initialize the emission matrix, states (5) in rows, observations (3) in columns
     double[][] emission = new double[][] {
                     {.98,.001,.001},
