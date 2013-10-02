@@ -122,7 +122,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     private int[] siteErrors, siteCorrectCnt, taxonErrors, taxonCorrectCnt;  //error recorded by sites
     
     
-    //initialize the transition matrix
+    //initialize the transition matrix (T1)
     double[][] transition = new double[][] {
                     {.999,.0001,.0003,.0001,.0005},
                     {.0002,.999,.00005,.00005,.0002},
@@ -131,13 +131,41 @@ public class MinorWindowKelly extends AbstractPlugin {
                     {.0005,.0001,.0003,.0001,.999}
         };
     //try this transition to optimize hets. the idea is that most of the recombination is ancestral so 
-    //the probability of transitioning to a het should be higher than the probability of transitioning to the other parent
+    //the probability of transitioning to a het should be higher than the probability of transitioning to the other parent (T2)
 //    double[][] transition = new double[][] {
 //                    {.999,.0001,.0005,.0001,.0003},
 //                    {.0002,.999,.00005,.00005,.0002},
 //                    {.0002,.00005,.999,.00005,.0002},
 //                    {.0002,.00005,.00005,.999,.0002},
 //                    {.0003,.0001,.0005,.0001,.999}
+//        };
+    //try this transition to optimize hets. the idea is that most of the recombination is ancestral so 
+    //the probability of transitioning to a het should be higher than the probability of transitioning to the other parent (T3)
+//    double[][] transition = new double[][] {
+//                    {.999,.0005,.005,.0005,.0003},
+//                    {.0002,.999,.0005,.0005,.0002},
+//                    {.0002,.0005,.999,.0005,.0002},
+//                    {.0002,.0005,.0005,.999,.0002},
+//                    {.0003,.0005,.005,.0005,.999}
+//        };
+    //try this transition to optimize hets. the idea is that most of the recombination is ancestral so 
+    //the probability of transitioning to a het should be higher than the probability of transitioning to the other parent (T4)
+//    double[][] transition = new double[][] {
+//                    {.99,.005,.05,.005,.0003},
+//                    {.0002,.999,.005,.0005,.0002},
+//                    {.0002,.0005,.999,.0005,.0002},
+//                    {.0002,.0005,.005,.999,.0002},
+//                    {.0003,.005,.05,.005,.99}
+//        };
+//    try this transition to optimize hets. the idea is that most of the recombination is ancestral so 
+//    the probability of transitioning to a het should be higher than the probability of transitioning to the other parent (T5)
+    double[][] transitionFocus = transition;
+//            new double[][] {
+//                    {.98,.04,.08,.04,.003},
+//                    {.02,.98,.05,.0005,.0002},
+//                    {.0002,.0005,.98,.0005,.0002},
+//                    {.0002,.0005,.005,.98,.0002},
+//                    {.003,.04,.08,.04,.98}
 //        };
     //initialize the emission matrix, states (5) in rows, observations (3) in columns
     double[][] emission = new double[][] {
@@ -154,11 +182,11 @@ public class MinorWindowKelly extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(MinorWindowKelly.class);
     
     //testOptions
-    boolean twoWayViterbi= false;
-    boolean focusBlockViterbi= false;
+    boolean twoWayViterbi= true;
+    boolean focusBlockViterbi= true;
     double maxErrorRateForFocusViterbi= .2;
     boolean smashMode= false;
-    boolean generateMAFFile= true;
+    boolean generateMAFFile= false;
 
     public MinorWindowKelly() {
         super(null, false);
@@ -414,7 +442,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         for (DonorHypoth dh : best2donors) {
             if((dh!=null)&&(dh.getErrorRate()<maxHybridErrorRate)) {
                 if(dh.isInbred()==false){
-                    dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi);
+                    dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
                 }
                 if(dh!=null) goodDH.add(dh);
             }
@@ -445,7 +473,7 @@ public class MinorWindowKelly extends AbstractPlugin {
             for (DonorHypoth dh : best2donors) {
                 if((dh!=null)&&(dh.getErrorRate()<maxHybridErrorRate)) {
                     if(dh.isInbred()==false){
-                        dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi);
+                        dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transitionFocus);
                     }
                     if(dh!=null) goodDH.add(dh);
                 }
@@ -578,7 +606,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                 for (DonorHypoth dh : best2donors) {
                     if((dh!=null)&&(dh.getErrorRate()<maxErrorRateForFocusViterbi)) {
                         if(dh.isInbred()==false){
-                            DonorHypoth useDH=getStateBasedOnViterbi(dh, donorOffset, donorAlign, true);
+                            DonorHypoth useDH=getStateBasedOnViterbi(dh, donorOffset, donorAlign, true, transitionFocus);
                             if(useDH!=null) goodDH.add(dh);
                         }
                     }
@@ -638,10 +666,10 @@ public class MinorWindowKelly extends AbstractPlugin {
         return impT;
     }
     
-    private DonorHypoth getStateBasedOnViterbi(DonorHypoth dh, int donorOffset, Alignment donorAlign, boolean forwardReverse) {
+    private DonorHypoth getStateBasedOnViterbi(DonorHypoth dh, int donorOffset, Alignment donorAlign, boolean forwardReverse, double[][] trans) {
         TransitionProbability tpF = new TransitionProbability();
         EmissionProbability ep = new EmissionProbability();
-        tpF.setTransitionProbability(transition);
+        tpF.setTransitionProbability(trans);
         ep.setEmissionProbability(emission);
         int startSite=dh.startBlock*64;
         int endSite=(dh.endBlock*64)+63;

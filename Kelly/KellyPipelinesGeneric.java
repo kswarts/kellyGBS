@@ -111,12 +111,12 @@ public class KellyPipelinesGeneric {
 //       String masked= dir+"AllZeaGBSv27StrictSubsetByAmesnoEPorGEM._masked_Depth5_Denom17.hmp.h5";
 //       String keyFile= dir+"AllZeaGBSv27StrictSubsetByAmes(no EP or GEM)._maskKey_Depth5_Denom17.hmp.h5";
 //       String donor= dir+"donors/AllZeaGBSv27.hmp.h5_HaplotypeMerge4k_sX.hmp.h5.hmp.txt";//standard
-//       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMergeInbredLandrace8k.gX.hmp.txt";//with HMM inbred landraces
-       String donor= dir+"donors/AllZeaGBSv27_HaplotypeMerge8k.gX.hmp.txt";
+       String donor= dir+"donors/AllZeaGBS_v2.7InbredFor12S_RIMMA_Span_SEED_HaplotypeMergeInbredLandrace8k.gX.hmp.txt";//with HMM inbred landraces
+//       String donor= dir+"donors/AllZeaGBSv27_HaplotypeMerge8k.gX.hmp.txt";
 //       String[] minMnCnt= {"15","20","25","30"};
 //       String[] mxInbErr= {".01",".02",".03",".04",".05"};
 //       String[] mxHybErr= {".003",".004",".005",".008",".01"};
-       double[] mafClass= new double[]{.05,10,20,1};
+       double[] mafClass= new double[]{.05,.10,.20,1};
        String[] minMnCnt= {"20"};
        String[] mxInbErr= {".01"};
        String[] mxHybErr= {".003"};
@@ -124,7 +124,7 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {
-            String out= masked.substring(0, masked.indexOf("_masked")-1)+"Depth5Denom11chr1_8kStdDonorKellyBase3_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
+            String out= masked.substring(0, masked.indexOf("_masked")-1)+"Depth5Denom11chr1_8kLandraceDonorKellyFocus_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
             String[] testArgs = new String[] {
                  "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
                  "-d",     donor, //Donor haplotype files 'c+s+' to denote sections\n"
