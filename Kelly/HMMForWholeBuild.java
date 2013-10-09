@@ -52,7 +52,7 @@ public class HMMForWholeBuild {
             System.out.println("All chromosomes do not match between hapmap and recombination file. Sites with missing rho will be set to missing");
         MutableNucleotideAlignmentHDF5 mna;
         if (useTxtFile==true) {
-            ParseAlignmentKelly.subsetHDF5FromTxt(inFileRoot, optionalTxtRoot, false, false, false);
+            ParseAlignmentKelly.subsetHDF5FromTxt(dir, inFileRoot, optionalTxtRoot, false, false, false);
             System.out.println("subset alignment by text file");
             mna= MutableNucleotideAlignmentHDF5.getInstance(dir+inFileRoot+"StrictSubsetBy"+optionalTxtRoot+".hmp.h5");
         }

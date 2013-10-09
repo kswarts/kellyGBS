@@ -485,8 +485,7 @@ public class KellyUtils {
             return align;
         }
    }
-   
-   public static String[] readInTxtNames(String inFile, boolean permissive) {
+    public static String[] readInTxtNames(String inFile, boolean permissive) {
        Set<String> names= new HashSet<String>();
        try {
             FileInputStream fis= new FileInputStream(inFile);
@@ -501,6 +500,7 @@ public class KellyUtils {
             fis.close();
         }
         catch (Exception e) {
+            System.out.println("Problem reading in taxa names");
         }
         ArrayList<String> sortNames= new ArrayList<String>();
         sortNames.addAll(names);

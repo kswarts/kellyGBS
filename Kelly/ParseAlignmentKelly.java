@@ -100,7 +100,7 @@ public class ParseAlignmentKelly {
    //this subsets an hdf5 based on taxa names taken from a text file (one taxon per line). Can be either permissive (where only the first
    //part of the name is compared) or strict, where only identical sample preps are selected. Print to hmp (h5==false) or hdf5 (h5==true)
    //if remove taxa equals true, the taxa listed in the text file will be removed and the rest returned, otherwise selected
-   public static void subsetHDF5FromTxt(String inFileRoot, String taxaNamesRoot, boolean permissive, boolean removeTaxa, boolean keepDepth) {
+   public static void subsetHDF5FromTxt(String dir, String inFileRoot, String taxaNamesRoot, boolean permissive, boolean removeTaxa, boolean keepDepth) {
        String[] nameArray= KellyUtils.readInTxtNames(dir+taxaNamesRoot+".txt", permissive);
        MutableNucleotideAlignmentHDF5 mnah5= (MutableNucleotideAlignmentHDF5)ImportUtils.readGuessFormat(dir+inFileRoot+".hmp.h5", false);
        mnah5.optimizeForTaxa(null);
@@ -284,7 +284,7 @@ public class ParseAlignmentKelly {
 //       //subset out landraces to replace with those inbred by HMM
 //       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,true,true, false);
        //subset 380 inbreds from Ames (randomized in excel)
-       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false,false);
+       subsetHDF5FromTxt(dir, inFileNameRoot,textToSubsetRoot,false,false,false);
        
 //       //filter alignment subsetting doesn't work for h5 mutable alignments
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
