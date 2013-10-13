@@ -177,7 +177,7 @@ public class ImputationAccuracyKelly {
                 byte[] currDepth= mnah5.getDepthForAlleles(taxon, site);
                 int[] currMinMaj= getIndexForMinMaj(mnah5.getMajorAllele(site),mnah5.getMinorAllele(site));
                 if (getReadDepthForAlleles(currDepth,currMinMaj)==depthToMask) {
-                    if ((depthToMask>3&&((getReadDepthForAlleles(currDepth,currMinMaj[0])==1)||(getReadDepthForAlleles(currDepth,currMinMaj[1])!=1)))) continue;
+                    if ((AlignmentUtils.isHeterozygous(taxonMask[site])==true)&&(depthToMask>3)&&((getReadDepthForAlleles(currDepth,currMinMaj[0])==1)||(getReadDepthForAlleles(currDepth,currMinMaj[1])==1))) continue;
                     if (mnah5.getPositionInLocus(site)%maskDenom==0) {
                         taxonMask[site]= diploidN;
                         taxonKey[site]= mnah5.getBase(taxon, site);
@@ -225,132 +225,149 @@ public class ImputationAccuracyKelly {
     public static void accuracyDepth(String keyFile, String imputedFileName, String donorMAFFile, double[] MAFClass) {
         Alignment index = ImportUtils.readGuessFormat(keyFile, false);
         Alignment imputed = ImportUtils.readGuessFormat(imputedFileName, false);
-        double[] hetAll = new double[5]; //0total count, 1good, 2toOneCorrectHomo, 3unimp, 4wrong
-        double[] minorAll = new double[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
-        double[] majorAll = new double[5]; //0total count, 1good, 2toHet, 3unimp, 4wrong
-        double[][] het = new double[5][imputed.getSequenceCount()]; //0total count, 1good, 2toOneCorrectHomo, 3unimp
-        double[][] minor = new double[5][imputed.getSequenceCount()]; //0total count, 1good, 2toHet, 3unimp
-        double[][] major = new double[5][imputed.getSequenceCount()]; //0total count, 1good, 2toHet, 3unimp
-        DecimalFormat df = new DecimalFormat("0.#####");
+        double[][] all= new double[3][5]; //arrays held ("columns"): 0-maskedMinor, 1-maskedHet, 2-maskedMajor; each array ("rows"):0-wrong (to minor for het), 1-partial (to major for het), 2-correct, 3-unimp, 4-total for known type
+        DecimalFormat df = new DecimalFormat("0.########");
         System.out.println("Imputed file: "+imputedFileName+"\nKey file: "+keyFile);
-        System.out.println("Taxon\tTotalSitesCompared\tNumHets\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tNumMinor\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
-                    + "WrongMinor\tNumMajor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor\tOverallError");
-        boolean MAFon= false;
-        double[] hetMAFWrong= null;//MAF taken from donor file
-        double[] minorMAFWrong= null;//MAF taken from donor file
-        double[] hetMAFPart= null;// MAF taken from donor file
-        double[] minorMAFPart= null;//MAF taken from donor file
+        System.out.println("Taxon\tTotalSitesCompared\tNumHets\tHetToMinor\tHetToMajor\tCorrectHet\tUnimpHet\tNumMinor\tMinorToMajor\tMinorToHet\tCorrectMinor\t"
+                    + "UnimpMinor\tNumMajor\tMajorToMinor\tMajorToHet\tCorrectMajor\tUnimputedMajor\tr2\tlambda");
+        if (Arrays.equals(index.getPhysicalPositions(), imputed.getPhysicalPositions())==false) System.out.println("sites do not match between imputed alignment and key");
+        boolean MAFon= (MAFClass==null||donorMAFFile==null)?false:true;
+        double[] hetMAFToMajor= null, minorMAFToMajor= null, hetMAFToMinor= null, minorMAFPart= null;
         int[] MAF= null;
-        if (donorMAFFile!=null&&MAFClass!=null) {
-            MAFon= true;
+        if (MAFon==true) {
             if (MAFClass[MAFClass.length-1]!=1) ArrayUtils.add(MAFClass, 1);
-            hetMAFWrong= new double[MAFClass.length+1];//MAF taken from donor file
-            minorMAFWrong= new double[MAFClass.length+1];//MAF taken from donor file
-            hetMAFPart= new double[MAFClass.length+1];// MAF taken from donor file
+            hetMAFToMajor= new double[MAFClass.length+1];//MAF taken from donor file
+            minorMAFToMajor= new double[MAFClass.length+1];//MAF taken from donor file
+            hetMAFToMinor= new double[MAFClass.length+1];// MAF taken from donor file
             minorMAFPart= new double[MAFClass.length+1];//MAF taken from donor file
             MAF= readInMAFFile(donorMAFFile, index, MAFClass);
         }
+        ArrayList<Double> x= new ArrayList<>();
+        ArrayList<Double> y= new ArrayList<>();
         for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
             for (int site = 0; site < imputed.getSiteCount(); site++) {
                 byte known = index.getBase(taxon, site);
+                String knownBase= index.getBaseAsString(taxon, site);
                 if (known == diploidN) continue;
-                else {
-                    byte imp = imputed.getBase(taxon, site);
-                    if (index.isHeterozygous(taxon, site) == true) {
-                        het[0][taxon]++;
-                        if (imp == diploidN) het[3][taxon]++;
-                        else if (AlignmentUtils.isEqual(imp, known) == true) het[1][taxon]++;
-                        else if (AlignmentUtils.isHeterozygous(imp) == false && AlignmentUtils.isPartiallyEqual(imp, known) == true) {
-                            het[2][taxon]++;
-                            if (MAFon) {
-                                if (MAF[site]<0) hetMAFPart[hetMAFPart.length-1]++; else hetMAFPart[MAF[site]]++;
-                            }
-                        }
-                        else {
-                            het[4][taxon]++;
-                            if (MAFon) {
-                                if (MAF[site]<0) hetMAFWrong[hetMAFPart.length-1]++; else hetMAFWrong[MAF[site]]++;
-                            }
-                        }
-                    } 
-                    else if (index.getBaseArray(taxon, site)[0] == imputed.getMinorAllele(site)) {
-                        minor[0][taxon]++;
-                        if (imp == diploidN) minor[3][taxon]++;
-                        else if (AlignmentUtils.isEqual(imp, known) == true) minor[1][taxon]++;
-                        else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) {
-                            minor[2][taxon]++;
-                            if (MAFon) {
-                                if (MAF[site]<0) minorMAFPart[minorMAFPart.length-1]++; else minorMAFPart[MAF[site]]++;
-                            }
-                        }
-                        else {
-                            minor[4][taxon]++;
-                            if (MAFon) {
-                                if (MAF[site]<0) minorMAFWrong[minorMAFWrong.length-1]++; else minorMAFWrong[MAF[site]]++;
-                            }
+                byte imp = imputed.getBase(taxon, site);
+                String impBase= imputed.getBaseAsString(taxon,site);
+                if (AlignmentUtils.isHeterozygous(known) == true) {
+                    all[1][4]++;
+                    if (imp == diploidN) all[1][3]++;
+                    else if (AlignmentUtils.isEqual(imp, known) == true) {all[1][2]++;x.add(1.0);y.add(1.0);}
+                    else if (AlignmentUtils.isHeterozygous(imp) == false && AlignmentUtils.isPartiallyEqual(imp, imputed.getMinorAllele(site)) == true) {
+                        x.add(1.0);y.add(0.0);
+                        all[1][0]++;
+                        if (MAFon) {
+                            if (MAF[site]<0) hetMAFToMinor[hetMAFToMinor.length-1]++; else hetMAFToMinor[MAF[site]]++;
                         }
                     }
-                    else if (index.getBaseArray(taxon, site)[0] == imputed.getMajorAllele(site)) {
-                        major[0][taxon]++;
-                        if (imp == diploidN) major[3][taxon]++;
-                        else if (AlignmentUtils.isEqual(imp, known) == true) major[1][taxon]++;
-                        else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) major[2][taxon]++;
-                        else major[4][taxon]++;
+                    else if (AlignmentUtils.isHeterozygous(imp) == false && AlignmentUtils.isPartiallyEqual(imp, imputed.getMajorAllele(site)) == true){
+                        all[1][1]++;
+                        x.add(1.0);y.add(2.0);
+                        if (MAFon) {
+                            if (MAF[site]<0) hetMAFToMajor[hetMAFToMajor.length-1]++; else hetMAFToMajor[MAF[site]]++;
+                        }
                     }
-                    else continue;
+                    else {System.out.println("Exclude: More than two allele states at site index "+site); all[1][4]--;}
+                } 
+                else if (index.getBaseArray(taxon, site)[0] == imputed.getMinorAllele(site)) {
+                    all[0][4]++;
+                    if (imp == diploidN) all[0][3]++;
+                    else if (AlignmentUtils.isEqual(imp, known) == true) {all[0][2]++;x.add(0.0);y.add(0.0);}
+                    else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) {
+                        all[0][1]++;
+                        x.add(0.0);y.add(1.0);
+                        if (MAFon) {
+                            if (MAF[site]<0) minorMAFPart[minorMAFPart.length-1]++; else minorMAFPart[MAF[site]]++;
+                        }
+                    }
+                    else {
+                        all[0][0]++;
+                        x.add(0.0);y.add(2.0);
+                        if (MAFon) {
+                            if (MAF[site]<0) minorMAFToMajor[minorMAFToMajor.length-1]++; else minorMAFToMajor[MAF[site]]++;
+                        }
+                    }
                 }
+                else if (index.getBaseArray(taxon, site)[0] == imputed.getMajorAllele(site)) {
+                    all[2][4]++;
+                    if (imp == diploidN) all[2][3]++;
+                    else if (AlignmentUtils.isEqual(imp, known) == true) {all[2][2]++;x.add(2.0);y.add(2.0);}
+                    else if (AlignmentUtils.isHeterozygous(imp) == true && AlignmentUtils.isPartiallyEqual(imp, known) == true) {all[2][1]++;x.add(2.0);y.add(1.0);}
+                    else {all[2][0]++;x.add(2.0);y.add(0.0);}
+                }
+                else continue;
             }
-            System.out.println(imputed.getFullTaxaName(taxon) + "\t" + (int) ((het[0][taxon] + minor[0][taxon] + major[0][taxon])) + "\t" + (int) het[0][taxon] + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[1][taxon] / het[0][taxon])) + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[2][taxon] / het[0][taxon])) + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[3][taxon] / het[0][taxon])) + "\t"
-                    + (het[0][taxon] == 0 ? 0 : df.format(het[4][taxon] / het[0][taxon])) + "\t" + (int) minor[0][taxon] + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[1][taxon] / minor[0][taxon])) + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[2][taxon] / minor[0][taxon])) + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[3][taxon] / minor[0][taxon])) + "\t"
-                    + (minor[0][taxon] == 0 ? 0 : df.format(minor[4][taxon] / minor[0][taxon])) + "\t" + (int) major[0][taxon] + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[1][taxon] / major[0][taxon])) + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[2][taxon] / major[0][taxon])) + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[3][taxon] / major[0][taxon])) + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[4][taxon] / major[0][taxon])));
-            for (int i = 0; i < major.length; i++) {hetAll[i] += het[i][taxon]; minorAll[i] += minor[i][taxon]; majorAll[i] += major[i][taxon];}
         }
+            
+        double[][] pearsonIn= new double[2][x.size()];
+        pearsonIn[0]= ArrayUtils.toPrimitive(x.toArray(new Double[x.size()]), -1.0); pearsonIn[1]= ArrayUtils.toPrimitive(y.toArray(new Double[y.size()]), -1.0);
+        double r2= pearsonR2(pearsonIn);
+        double[][] forLambda= new double[3][3];
+        forLambda[0]= ArrayUtils.subarray(all[0], 0, 3);forLambda[1]= ArrayUtils.subarray(all[1], 0, 3);forLambda[2]=ArrayUtils.subarray(all[2], 0, 3);
+        double l= lambda(forLambda);
         try {
             File outputFile = new File(imputedFileName.substring(0, imputedFileName.indexOf(".hmp.h5")) + "DepthAccuracy.txt");
             DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
-            outStream.writeBytes("Taxon\tTotalSitesCompared\tNumHets\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tNumMinor\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
-                    + "WrongMinor\tNumMajor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor\tOverallError\n");
-            for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
-                outStream.writeBytes(imputed.getFullTaxaName(taxon) + "\t" + (int) ((het[0][taxon] + minor[0][taxon] + major[0][taxon])) + "\t" + (int) het[0][taxon] + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[1][taxon] / het[0][taxon])) + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[2][taxon] / het[0][taxon])) + "\t" + (het[0][taxon] == 0 ? 0 : df.format(het[3][taxon] / het[0][taxon])) + "\t"
-                        + (het[0][taxon] == 0 ? 0 : df.format(het[4][taxon] / het[0][taxon])) + "\t" + (int) minor[0][taxon] + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[1][taxon] / minor[0][taxon])) + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[2][taxon] / minor[0][taxon])) + "\t" + (minor[0][taxon] == 0 ? 0 : df.format(minor[3][taxon] / minor[0][taxon])) + "\t"
-                        + (minor[0][taxon] == 0 ? 0 : df.format(minor[4][taxon] / minor[0][taxon])) + "\t" + (int) major[0][taxon] + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[1][taxon] / major[0][taxon])) + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[2][taxon] / major[0][taxon])) + "\t" + (major[0][taxon] == 0 ? 0 : df.format(major[3][taxon] / major[0][taxon])) + "\t" 
-                        + (major[0][taxon] == 0 ? 0 : df.format(major[4][taxon] / major[0][taxon])) + "\n");
-            }
-            outStream.writeBytes("TotalByImputed\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / (hetAll[0]))) + "\t"
-                        + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / (hetAll[0]-hetAll[3]))) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / (minorAll[0]))) + "\t"
-                        + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / (minorAll[0]-minorAll[3]))) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / (majorAll[0]))) + "\t" 
-                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / (majorAll[0]-majorAll[3]))) + "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0]-minorAll[3]-majorAll[3]+hetAll[3])) + "\n");
-            outStream.writeBytes("Total\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / hetAll[0])) + "\t"
-                        + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / hetAll[0])) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / minorAll[0])) + "\t"
-                        + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / minorAll[0])) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / majorAll[0])) + "\t" 
-                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / majorAll[0]))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0]))+"\n");
+            outStream.writeBytes("Taxon\tTotalSitesCompared\tNumMinor\tMinorToMajor\tMinorToHet\tCorrectMinor\t"
+                    + "UnimpMinor\tNumHets\tHetToMinor\tHetToMajor\tCorrectHet\tUnimpHet\tNumMajor\tMajorToMinor\tMajorToHet\tCorrectMajor\tUnimputedMajor\tOverallError\tr2\tlambda\n");
+            outStream.writeBytes("TotalByImputed\t"+(all[0][4]+all[1][4]+all[2][4])+"\t"+all[0][4]+"\t"+all[0][0]+"\t"+all[0][1]+"\t"+all[0][2]+"\t"+all[0][3]+"\t"+all[1][4]+"\t"+all[1][0]+"\t"+all[1][1]+"\t"+all[1][2]+"\t"+all[1][3]+"\t"+all[2][4]+"\t"+all[2][0]+"\t"+all[2][1]+"\t"+all[2][2]+"\t"+all[2][3]+"\t"+r2+"\t"+l+"\n");
             if (MAFon) {
                 outStream.writeBytes("Site MAF of donor file by class:\nClass");
-                for(double i:MAFClass){outStream.writeBytes("\t<"+i);}
-                outStream.writeBytes("\nPartialHets");for(double i:hetMAFPart){outStream.writeBytes("\t"+(hetAll[2]==0?0:df.format(i/(hetAll[2])-hetMAFPart[hetMAFPart.length-1])));}
-                outStream.writeBytes("\nWrongHets");for(double i:hetMAFWrong){outStream.writeBytes("\t"+(hetAll[4]==0?0:df.format(i/(hetAll[4])-hetMAFWrong[hetMAFWrong.length-1])));}
-                outStream.writeBytes("\nMinorToHet");for(double i:minorMAFPart){outStream.writeBytes("\t"+(minorAll[2]==0?0:df.format(i/(minorAll[2])-minorMAFPart[minorMAFPart.length-1])));}
-                outStream.writeBytes("\nWrongMinor");for(double i:minorMAFWrong){outStream.writeBytes("\t"+(minorAll[4]==0?0:df.format(i/(minorAll[4])-minorMAFWrong[minorMAFWrong.length-1])));}
+                for(int i= 0;i<hetMAFToMinor.length-1;i++){
+                    outStream.writeBytes(MAFClass[i]+"\t"+(all[1][2]==0?0:df.format(hetMAFToMinor[i]/(all[1][2]-hetMAFToMinor[hetMAFToMinor.length-1])))+"\t"+(all[1][4]==0?0:df.format(hetMAFToMajor[i]/(all[1][4]-hetMAFToMajor[hetMAFToMajor.length-1])))+
+                            "\t"+(all[0][2]==0?0:df.format(minorMAFPart[i]/(all[0][2]-minorMAFPart[minorMAFPart.length-1])))+"\t"+(all[0][4]==0?0:df.format(minorMAFToMajor[i]/(all[0][4]-minorMAFToMajor[minorMAFToMajor.length-1]))));
+                }
             }
-            System.out.println("TotalByImputed\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / (hetAll[0]-hetAll[3]))) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / (hetAll[0]))) + "\t"
-                        + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / (hetAll[0]-hetAll[3]))) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / (minorAll[0]-minorAll[3]))) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / (minorAll[0]))) + "\t"
-                        + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / (minorAll[0]-minorAll[3]))) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / (majorAll[0]-majorAll[3]))) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / (majorAll[0]))) + "\t" 
-                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / (majorAll[0]-majorAll[3])))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0]-minorAll[3]-majorAll[3]+hetAll[3])));
-            System.out.println("Total\t" + (int) ((hetAll[0] + minorAll[0] + majorAll[0])) + "\t" + (int) hetAll[0] + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[1] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[2] / hetAll[0])) + "\t" + (hetAll[0] == 0 ? 0 : df.format(hetAll[3] / hetAll[0])) + "\t"
-                        + (hetAll[0] == 0 ? 0 : df.format(hetAll[4] / hetAll[0])) + "\t" + (int) minorAll[0] + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[1] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[2] / minorAll[0])) + "\t" + (minorAll[0] == 0 ? 0 : df.format(minorAll[3] / minorAll[0])) + "\t"
-                        + (minorAll[0] == 0 ? 0 : df.format(minorAll[4] / minorAll[0])) + "\t" + (int) majorAll[0] + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[1] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[2] / majorAll[0])) + "\t" + (majorAll[0] == 0 ? 0 : df.format(majorAll[3] / majorAll[0])) + "\t" 
-                        + (majorAll[0] == 0 ? 0 : df.format(majorAll[4] / majorAll[0]))+ "\t" + df.format((minorAll[4]+majorAll[4]+hetAll[4]) / (minorAll[0]+majorAll[0]+hetAll[0])));
+            System.out.println("TotalByImputed\t"+(all[0][4]+all[1][4]+all[2][4])+"\t"+all[0][4]+"\t"+all[0][0]+"\t"+all[0][1]+"\t"+all[0][2]+"\t"+all[0][3]+"\t"+all[1][4]+"\t"+all[1][0]+"\t"+all[1][1]+"\t"+all[1][2]+"\t"+all[1][3]+"\t"+all[2][4]+"\t"+all[2][0]+"\t"+all[2][1]+"\t"+all[2][2]+"\t"+all[2][3]+"\t"+r2+"\t"+l);
             if (MAFon) {
                 System.out.println("Site MAF of donor file by class:\nClass (<=, 0 is invariant)\tPartialhets\tWrongHets\tMinorToHet\tWrongMinor");
-                for(int i= 0;i<hetMAFPart.length-1;i++){
-                    System.out.println(MAFClass[i]+"\t"+(hetAll[2]==0?0:df.format(hetMAFPart[i]/(hetAll[2]-hetMAFPart[hetMAFPart.length-1])))+"\t"+(hetAll[4]==0?0:df.format(hetMAFWrong[i]/(hetAll[4]-hetMAFWrong[hetMAFWrong.length-1])))+
-                            "\t"+(minorAll[2]==0?0:df.format(minorMAFPart[i]/(minorAll[2]-minorMAFPart[minorMAFPart.length-1])))+"\t"+(minorAll[4]==0?0:df.format(minorMAFWrong[i]/(minorAll[4]-minorMAFWrong[minorMAFWrong.length-1]))));
+                for(int i= 0;i<hetMAFToMinor.length-1;i++){
+                    System.out.println(MAFClass[i]+"\t"+(all[1][2]==0?0:df.format(hetMAFToMinor[i]/(all[1][2]-hetMAFToMinor[hetMAFToMinor.length-1])))+"\t"+(all[1][4]==0?0:df.format(hetMAFToMajor[i]/(all[1][4]-hetMAFToMajor[hetMAFToMajor.length-1])))+
+                            "\t"+(all[0][2]==0?0:df.format(minorMAFPart[i]/(all[0][2]-minorMAFPart[minorMAFPart.length-1])))+"\t"+(all[0][4]==0?0:df.format(minorMAFToMajor[i]/(all[0][4]-minorMAFToMajor[minorMAFToMajor.length-1]))));
                 }
             }
             outStream.close();
         } catch (Exception e) {
             System.out.println(e);
         }
+    }
+    
+    //this is the sample r2. make double[2][num compared], with index 0 as x and 1 as y 
+    // input should be coded if categorical according to desired linear contrast
+    private static double pearsonR2(double[][] xy) {
+        double meanX= 0; double meanY= 0; double varX= 0; double varY= 0; double covXY= 0; double r2= 0.0;
+        for (int i = 0; i < xy[0].length; i++) {meanX+=xy[0][i]; meanY+= xy[1][i];}
+        double currX, currY;
+        for (int i = 0; i < xy[0].length; i++) {
+            currX= xy[0][i]-meanX; currY= xy[1][i]-meanY;
+            varX+= currX*currX; varY+= currY*currY;
+            covXY+= currX*currY;
+        }
+        r2= (1/(xy[0].length-1))*(covXY/(Math.sqrt(varX)*Math.sqrt(varY)));
+        return r2;
+    }
+    
+    //implements lambda, a non-parametric test of association for categorical nominal variables
+    //input: first array is independant, second is dependant (double[2][num classes])
+    private static double lambda(double[][] id) {
+        double[] totalDep= new double[id[0].length+1];
+        double e1= 0;
+        for (int j = 0; j < id.length; j++) {
+            for (int i = 0; i < id[0].length; i++) { totalDep[j]+= id[i][j];}
+            if (totalDep[j]>e1) e1= totalDep[j];
+        }
+        double e2= 0;
+        for (int i = 0; i < id.length; i++) {
+            double currMode= 0;
+            for (int j = 0; j < id[0].length; j++) {
+                if (id[i][j]>currMode) currMode= id[i][j];
+            }
+            e2+= currMode;
+        }
+        double l= (e1-e2)/e1;
+        return l;
     }
     
     private static int[] getIndexForMinMaj(byte maj, byte min) {
@@ -822,12 +839,12 @@ public class ImputationAccuracyKelly {
 //                    ImportUtils.readFromHapmap(dir+"RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2.hmp.txt.gz",null),true, -1, .6, .005, .2, "RIMMA_282_v2.6_MERGEDUPSNPS_20130513_chr10subset__minCov0.2_masked55k_HomoSegBlock200HetWithExtras8k.minMtCnt15.mxInbErr.01.mxHybErr.003.c10.Accuracy55k.txt");
         
         //mask input depth file using depth
-        dir= "/Users/kellyadm/Desktop/Imputation2.7/";//laptop
-        dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/parts/";
-        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
-        int depth= 5;
-        int maskDenom= 17;
-        maskBaseFileByDepth(h5Depth, depth, maskDenom, true);
+//        dir= "/Users/kellyadm/Desktop/Imputation2.7/";//laptop
+//        dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/parts/";
+//        String h5Depth= dir+"AllZeaGBS_v2.7_SeqToGenos_part14.hmp.h5";
+//        int depth= 5;
+//        int maskDenom= 17;
+//        maskBaseFileByDepth(h5Depth, depth, maskDenom, true);
 //        
 ////         //mask using depth. requires an hdf5 file with depth
         dir= "/home/kls283/Documents/Imputation/";//cbsugbs
@@ -873,25 +890,25 @@ public class ImputationAccuracyKelly {
 
         
         //run accuracy on depth-masked imputed file. Only system out now.
-//        String dir= "//Users/kellyadm/Desktop/Imputation2.7/";
-////        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
-////        String key= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
-////        String imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-////        accuracyDepth(key, imputed);
-////        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-////        accuracyDepth(key, imputed);
-////        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor4k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-////        accuracyDepth(key, imputed);
-////        String key=  dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom17.hmp.h5";
-////        String imputed=  dir+"resultsBaseImputation/AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        String imputed=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_SpanDepth5Denom11chr1_8kStdDonorKellyBase3_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        String key=  dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11chr1.hmp.h5";
-//        String mafFile= dir+"donors/AllZeaGBSv27_HaplotypeMerge8kMAF.txt";
-//        double[] mafClass= new double[]{0,.05,.10,.20,1}; 
-////        accuracyDepth(key, imputed);
-////        imputed=  dir+"results0918/AllZeaGBSv27StrictSubsetByAmes408_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-////        imputed= dir+"AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8kKellyFRFixed_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
-//        accuracyDepth(key, imputed, mafFile, mafClass);
+        String dir= "//Users/kls283/Desktop/Imputation/";
+//        String dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+//        String key= dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom17.hmp.h5";
+//        String imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        accuracyDepth(key, imputed);
+//        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        accuracyDepth(key, imputed);
+//        imputed=  dir+"/results0918/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span_LandraceDonor4k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        accuracyDepth(key, imputed);
+//        String key=  dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom17.hmp.h5";
+//        String imputed=  dir+"resultsBaseImputation/AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+        String imputed=  dir+"AllZeaGBS_v2.7wDeptDepth5Denom11chr1_8kStdDonorBase_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+        String key=  dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr1.hmp.h5";
+        String mafFile= dir+"donors/AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11_StdHaplotypeMergeDiv.018kMAF.txt";
+        double[] mafClass= new double[]{0,.05,.10,.20,1}; 
+//        accuracyDepth(key, imputed);
+//        imputed=  dir+"results0918/AllZeaGBSv27StrictSubsetByAmes408_StdDonor8k_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+//        imputed= dir+"AllZeaGBSv27StrictSubsetByAmes408_LandraceDonor8kKellyFRFixed_depth5_denom17_imp.minCnt20.mxInbErr.01.mxHybErr.003.hmp.h5";
+        accuracyDepth(key, imputed, mafFile, mafClass);
         
         }
     
