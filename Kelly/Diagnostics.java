@@ -9,6 +9,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.Locus;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.prefs.TasselPrefs;
 
@@ -16,6 +17,7 @@ import net.maizegenetics.prefs.TasselPrefs;
  *
  * @author kls283
  */
+//gets site depth statistics from the unmasked file. can restrict sites calculated for by the key file, but takes taxon from the unmasked file
 public class Diagnostics {
     public static void maskedSitesDepth(String keyFile, String unmaskedFile) {
         MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(keyFile);
@@ -23,10 +25,13 @@ public class Diagnostics {
         long[][] depth= new long[2][200];//first array (index 0) is for masked sites, index 1 for unmasked sites
         int which= 0;
         int currDepth= 0;
+        int unmaskedSite;
         for (int site = 0; site < key.getSiteCount(); site++) {
+            unmaskedSite= unmasked.getSiteOfPhysicalPosition(key.getPositionInLocus(site), key.getLocus(site));
             which= (key.getMajorAllele(site)==Alignment.UNKNOWN_ALLELE)?1:0;
             for (int taxon = 0; taxon < key.getSequenceCount(); taxon++) {
-                for (byte i:unmasked.getDepthForAlleles(taxon, site)) {currDepth+= i;}
+                currDepth= 0;
+                for (byte i:unmasked.getDepthForAlleles(taxon, unmaskedSite)) {currDepth+= i;}
                 depth[which][currDepth]++;
             }
         }
@@ -48,9 +53,10 @@ public class Diagnostics {
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         
-        String dir= "/Users/kls283/Documents/Imputation/";
-        String keyFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7.hmp.h5";
-        String unmasked= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
+//        String dir= "/Users/kls283/Documents/Imputation/";
+        String dir= "/Users/kls283/Desktop/Imputation/";
+        String keyFile= dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth7_Denom7Small.hmp.h5";
+        String unmasked= dir+"AllZeaGBS_v2.7_SeqToGenos_part11.hmp.h5";
         maskedSitesDepth(keyFile, unmasked);
         
         }
