@@ -36,14 +36,14 @@ public class Diagnostics {
             }
         }
         try {
-            File outputFile = new File(keyFile.substring(0, keyFile.indexOf("maskKey")) + "SiteDepthDiagnostic.txt");
+            File outputFile = new File(keyFile.substring(0, keyFile.indexOf(".hmp")) + "SiteDepthDiagnostic.txt");
             DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
-            outStream.writeBytes("MaskedSites\tUnmaskedSites");
+            outStream.writeBytes("Depth\tMaskedSites\tUnmaskedSites");
             for (int d = 0; d < depth[0].length; d++) {
-                outStream.writeBytes("\n");
+                outStream.writeBytes("\n"+d+"\t");
                 outStream.writeLong(depth[0][d]);
                 outStream.writeBytes("\t");
-                outStream.writeLong(depth[0][d]);
+                outStream.writeLong(depth[1][d]);
             }
         }
         catch (Exception e) {
