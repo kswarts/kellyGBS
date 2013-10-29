@@ -27,12 +27,12 @@ public class Diagnostics {
     public static void maskedSitesDepth(String keyFile, String unmaskedFile) {
         MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(keyFile);
         MutableNucleotideAlignmentHDF5 unmasked= MutableNucleotideAlignmentHDF5.getInstance(unmaskedFile);
-        long[][] depth= new long[2][1000];//first array (index 0) is for masked sites, index 1 for unmasked sites
+        int[][] depth= new int[2][1000];//first array (index 0) is for masked sites, index 1 for unmasked sites
         int which= 0;
         int currDepth= 0;
         int unmaskedSite;
         for (int site = 0; site < key.getSiteCount(); site++) {
-            if (depth[0][0]==Long.MAX_VALUE||depth[1][0]==Long.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
+            if (depth[0][0]==Integer.MAX_VALUE||depth[1][0]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
             unmaskedSite= unmasked.getSiteOfPhysicalPosition(key.getPositionInLocus(site), key.getLocus(site));
             which= (key.getMajorAllele(site)==Alignment.UNKNOWN_ALLELE)?1:0;
             for (int taxon = 0; taxon < unmasked.getSequenceCount(); taxon++) {
@@ -73,16 +73,16 @@ public class Diagnostics {
                 else keepSites.add(site);
             }
             FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
-            ExportUtils.writeToVCF(fa, file.substring(0, file.indexOf(".vcf"))+"NoIndels.vcf.gz", '\t');
+            ExportUtils.writeToVCF(fa, file.substring(0, file.indexOf(inFiles[0].substring(inFiles[0].length()-6)))+"NoIndels.vcf.gz", '\t');
         }
     }
     
-    public static void removeIndelsForBeagle(String dir) {
+    public static void removeIndelsForBeagle(String dir, String fileType) {
         File[] inFiles= new File(dir).listFiles();
         
         for (File file:inFiles) {
             String readFile= null;
-            if (file.isFile() && file.getName().endsWith(".vcf.gz")) readFile= file.getName();
+            if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
             Alignment a= ImportUtils.readGuessFormat(readFile, true);
             ArrayList<Integer> keepSites= new ArrayList<>();
@@ -94,7 +94,7 @@ public class Diagnostics {
                     keepSites.add(site);
             }
             FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
-            ExportUtils.writeToVCF(fa, readFile.substring(0, readFile.indexOf(".vcf"))+"NoIndels.vcf.gz", '\t');
+            ExportUtils.writeToVCF(fa, readFile.substring(0, readFile.indexOf(fileType))+"NoIndels.vcf.gz", '\t');
         }
     }
     
@@ -113,7 +113,7 @@ public class Diagnostics {
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-        removeIndelsForBeagle(dir);
+        removeIndelsForBeagle(dir, ".hmp.h5");
         removeIndelsForBeagle(files);
         
         }
