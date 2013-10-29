@@ -8,11 +8,15 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.Arrays;
-import java.util.List;
+import java.util.ArrayList;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.ExportUtils;
+import net.maizegenetics.pal.alignment.FilterAlignment;
+import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
+import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.prefs.TasselPrefs;
+import org.apache.commons.lang.ArrayUtils;
 
 /**
  *
@@ -53,6 +57,22 @@ public class Diagnostics {
             }
         }
         catch (Exception e) {
+        }
+    }
+    
+    public static void removeIndelsForBeagle(String[] inFiles) {
+        for (String file:inFiles) {
+            Alignment a= ImportUtils.readGuessFormat(file, true);
+            ArrayList<Integer> keepSites= new ArrayList<>();
+            for (int site = 0; site < a.getSiteCount(); site++) {
+                if (a.getMajorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
+                        a.getMajorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE&&
+                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
+                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE)
+                    keepSites.add(site);
+            }
+            FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
+            ExportUtils.writeToVCF(fa, file.substring(0, file.indexOf(".vcf"))+"NoIndels.vcf.gz", '\t');
         }
     }
     
