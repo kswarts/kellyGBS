@@ -61,16 +61,16 @@ public class Diagnostics {
     }
     
     public static void removeIndelsForBeagle(String[] inFiles) {
-        TasselPrefs.putAlignmentRetainRareAlleles(false);
         for (String file:inFiles) {
             Alignment a= ImportUtils.readGuessFormat(file, true);
             ArrayList<Integer> keepSites= new ArrayList<>();
             for (int site = 0; site < a.getSiteCount(); site++) {
-                if (a.getMajorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
-                        a.getMajorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE&&
-                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
-                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE)
-                    keepSites.add(site);
+                if (a.getMajorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
+                        a.getMajorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE||
+                        a.getMinorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
+                        a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE)
+                    continue;
+                else keepSites.add(site);
             }
             FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
             ExportUtils.writeToVCF(fa, file.substring(0, file.indexOf(".vcf"))+"NoIndels.vcf.gz", '\t');
@@ -78,7 +78,6 @@ public class Diagnostics {
     }
     
     public static void removeIndelsForBeagle(String dir) {
-        TasselPrefs.putAlignmentRetainRareAlleles(false);
         File[] inFiles= new File(dir).listFiles();
         
         for (File file:inFiles) {
