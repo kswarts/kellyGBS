@@ -77,6 +77,28 @@ public class Diagnostics {
         }
     }
     
+    public static void removeIndelsForBeagle(String dir) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
+        File[] inFiles= new File(dir).listFiles();
+        
+        for (File file:inFiles) {
+            String readFile= null;
+            if (file.isFile() && file.getName().endsWith(".vcf.gz")) readFile= file.getName();
+            if (readFile==null) continue;
+            Alignment a= ImportUtils.readGuessFormat(readFile, true);
+            ArrayList<Integer> keepSites= new ArrayList<>();
+            for (int site = 0; site < a.getSiteCount(); site++) {
+                if (a.getMajorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
+                        a.getMajorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE&&
+                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.GAP_ALLELE&&
+                        a.getMinorAllele(site)!= NucleotideAlignmentConstants.INSERT_ALLELE)
+                    keepSites.add(site);
+            }
+            FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
+            ExportUtils.writeToVCF(fa, readFile.substring(0, readFile.indexOf(".vcf"))+"NoIndels.vcf.gz", '\t');
+        }
+    }
+    
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         String dir;
@@ -92,7 +114,8 @@ public class Diagnostics {
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-        
+        removeIndelsForBeagle(dir);
+        removeIndelsForBeagle(files);
         
         }
 }
