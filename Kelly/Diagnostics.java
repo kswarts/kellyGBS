@@ -8,8 +8,9 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.List;
 import net.maizegenetics.pal.alignment.Alignment;
-import net.maizegenetics.pal.alignment.Locus;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.prefs.TasselPrefs;
 
@@ -22,7 +23,7 @@ public class Diagnostics {
     public static void maskedSitesDepth(String keyFile, String unmaskedFile) {
         MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(keyFile);
         MutableNucleotideAlignmentHDF5 unmasked= MutableNucleotideAlignmentHDF5.getInstance(unmaskedFile);
-        int[][] depth= new int[2][200];//first array (index 0) is for masked sites, index 1 for unmasked sites
+        long[][] depth= new long[2][1000];//first array (index 0) is for masked sites, index 1 for unmasked sites
         int which= 0;
         int currDepth= 0;
         int unmaskedSite;
