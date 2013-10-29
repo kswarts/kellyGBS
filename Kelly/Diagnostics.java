@@ -61,6 +61,7 @@ public class Diagnostics {
     }
     
     public static void removeIndelsForBeagle(String[] inFiles) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
         for (String file:inFiles) {
             Alignment a= ImportUtils.readGuessFormat(file, true);
             ArrayList<Integer> keepSites= new ArrayList<>();
@@ -78,12 +79,20 @@ public class Diagnostics {
     
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
+        String dir;
         
-        String dir= "/home/kls283/Documents/Imputation/";
+        dir= "/home/kls283/Documents/Imputation/";
 //        String dir= "/Users/kls283/Desktop/Imputation/";
         String keyFile= dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth7_Denom7.hmp.h5";
         String unmasked= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
         maskedSitesDepth(keyFile, unmasked);
+        
+        dir= "/home/kls283/Documents/Imputation/";
+        String[] files= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
+        dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
+        dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
+        dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
+        
         
         }
 }
