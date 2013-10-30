@@ -33,8 +33,8 @@ public class Diagnostics {
         int which= 0;
         int currDepth= 0;
         int unmaskedSite;
-        int inc= (int) keyFile.charAt(keyFile.indexOf("Denom")+5);
-        for (int site = 0; site < key.getSiteCount(); site+= inc) {
+        int inc= Character.getNumericValue(keyFile.charAt(keyFile.indexOf(".hmp")-1));
+        for (int site = 0; site < key.getSiteCount(); site+= 10) {
             if (depth[0][0]==Integer.MAX_VALUE||depth[1][0]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
             unmaskedSite= unmasked.getSiteOfPhysicalPosition(key.getPositionInLocus(site), key.getLocus(site));
             which= (key.getMajorAllele(site)==Alignment.UNKNOWN_ALLELE)?1:0;
@@ -99,7 +99,7 @@ public class Diagnostics {
             if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
             Alignment a= ImportUtils.readGuessFormat(readFile, true);
-            MutableNucleotideAlignment mna= (a.retainsRareAlleles()==true)?MutableNucleotideAlignment.getInstance(a):null;
+            MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
             ArrayList<Integer> keepSites= new ArrayList<>();
             for (int site = 0; site < a.getSiteCount(); site++) {
                 if (a.getMajorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
@@ -108,7 +108,7 @@ public class Diagnostics {
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE)
                     continue;
                 keepSites.add(site);
-                if (a.retainsRareAlleles()&&a.getAlleles(site).length>2) {
+                if (a.getAlleles(site).length>2) {
                     byte badGeno= AlignmentUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE, NucleotideAlignmentConstants.INSERT_ALLELE);
                     for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
                         if (AlignmentUtils.isPartiallyEqual(a.getBase(taxon, site),badGeno)) {
@@ -123,7 +123,7 @@ public class Diagnostics {
                     }
                 }
             }
-            FilterAlignment fa= FilterAlignment.getInstance((a.retainsRareAlleles()==true)?mna:a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
+            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
             ExportUtils.writeToVCF(fa, readFile.substring(0, readFile.indexOf(fileType))+"NoIndels.vcf.gz", '\t');
         }
     }
