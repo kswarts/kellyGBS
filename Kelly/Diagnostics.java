@@ -35,13 +35,13 @@ public class Diagnostics {
         int unmaskedSite;
         int inc= Character.getNumericValue(keyFile.charAt(keyFile.indexOf(".hmp")-1));
         for (int site = 0; site < key.getSiteCount(); site+= 10) {
-            if (depth[0][0]==Integer.MAX_VALUE||depth[1][0]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
             unmaskedSite= unmasked.getSiteOfPhysicalPosition(key.getPositionInLocus(site), key.getLocus(site));
             which= (key.getMajorAllele(site)==Alignment.UNKNOWN_ALLELE)?1:0;
             for (int taxon = 0; taxon < unmasked.getSequenceCount(); taxon++) {
                 currDepth= 0;
                 for (byte i:unmasked.getDepthForAlleles(taxon, unmaskedSite)) {currDepth+= i;}
-                depth[which][currDepth]++;
+                if (depth[which][currDepth]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
+                else depth[which][currDepth]++;
             }
             System.out.println("Complete site "+site+" of "+key.getSiteCount());
         }
@@ -112,13 +112,7 @@ public class Diagnostics {
                     byte badGeno= AlignmentUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE, NucleotideAlignmentConstants.INSERT_ALLELE);
                     for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
                         if (AlignmentUtils.isPartiallyEqual(a.getBase(taxon, site),badGeno)) {
-                            if (a.isHeterozygous(taxon, site)==false) mna.setBase(taxon, site, Alignment.UNKNOWN_DIPLOID_ALLELE);
-                            else {
-                                byte[] all= a.getBaseArray(taxon, site);
-                                all[0]= (all[0]==NucleotideAlignmentConstants.INSERT_ALLELE||all[0]==NucleotideAlignmentConstants.GAP_ALLELE)?
-                                        Alignment.UNKNOWN_ALLELE:Alignment.UNKNOWN_ALLELE;
-                                mna.setBase(taxon, site, AlignmentUtils.getDiploidValue(all[0], all[1]));
-                                }
+                            mna.setBase(taxon, site, Alignment.UNKNOWN_DIPLOID_ALLELE);
                         }
                     }
                 }
