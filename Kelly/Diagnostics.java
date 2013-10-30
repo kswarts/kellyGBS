@@ -10,9 +10,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import net.maizegenetics.pal.alignment.Alignment;
+import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.prefs.TasselPrefs;
@@ -40,6 +42,7 @@ public class Diagnostics {
                 for (byte i:unmasked.getDepthForAlleles(taxon, unmaskedSite)) {currDepth+= i;}
                 depth[which][currDepth]++;
             }
+            System.out.println("Complete site "+site+" of "+key.getSiteCount());
         }
         System.out.println("Depth\tMaskedSites\tUnmaskedSites");
         for (int i = 0; i < depth[0].length; i++) {
@@ -63,6 +66,7 @@ public class Diagnostics {
     public static void removeIndelsForBeagle(String[] inFiles) {
         for (String file:inFiles) {
             Alignment a= ImportUtils.readGuessFormat(file, true);
+            MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
             ArrayList<Integer> keepSites= new ArrayList<>();
             for (int site = 0; site < a.getSiteCount(); site++) {
                 if (a.getMajorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
@@ -70,9 +74,23 @@ public class Diagnostics {
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE)
                     continue;
-                else keepSites.add(site);
+                keepSites.add(site);
+                if (a.retainsRareAlleles()&&a.getAlleles(site).length>2) {
+                    byte badGeno= AlignmentUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE, NucleotideAlignmentConstants.INSERT_ALLELE);
+                    for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+                        if (AlignmentUtils.isPartiallyEqual(a.getBase(taxon, site),badGeno)) {
+                            if (a.isHeterozygous(taxon, site)==false) mna.setBase(taxon, site, Alignment.UNKNOWN_DIPLOID_ALLELE);
+                            else {
+                                byte[] all= a.getBaseArray(taxon, site);
+                                all[0]= (all[0]==NucleotideAlignmentConstants.INSERT_ALLELE||all[0]==NucleotideAlignmentConstants.GAP_ALLELE)?
+                                        Alignment.UNKNOWN_ALLELE:Alignment.UNKNOWN_ALLELE;
+                                mna.setBase(taxon, site, AlignmentUtils.getDiploidValue(all[0], all[1]));
+                                }
+                        }
+                    }
+                }
             }
-            FilterAlignment fa= FilterAlignment.getInstance(a, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
+            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
             ExportUtils.writeToVCF(fa, file.substring(0, file.indexOf(inFiles[0].substring(inFiles[0].length()-6)))+"NoIndels.vcf.gz", '\t');
         }
     }
@@ -108,7 +126,7 @@ public class Diagnostics {
         String unmasked= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
         maskedSitesDepth(keyFile, unmasked);
         
-        dir= "/home/kls283/Documents/Imputation/";
+        dir= "/home/kls283/Documents/Imputation/beagle/";
         String[] files= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
