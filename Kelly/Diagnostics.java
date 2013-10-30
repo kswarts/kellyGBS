@@ -33,7 +33,8 @@ public class Diagnostics {
         int which= 0;
         int currDepth= 0;
         int unmaskedSite;
-        for (int site = 0; site < key.getSiteCount(); site++) {
+        int inc= (int) keyFile.charAt(keyFile.indexOf("Denom")+1);
+        for (int site = 0; site < key.getSiteCount(); site+= inc) {
             if (depth[0][0]==Integer.MAX_VALUE||depth[1][0]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
             unmaskedSite= unmasked.getSiteOfPhysicalPosition(key.getPositionInLocus(site), key.getLocus(site));
             which= (key.getMajorAllele(site)==Alignment.UNKNOWN_ALLELE)?1:0;
@@ -46,18 +47,13 @@ public class Diagnostics {
         }
         System.out.println("Depth\tMaskedSites\tUnmaskedSites");
         for (int i = 0; i < depth[0].length; i++) {
-            System.out.println(i+"\t"+depth[0]+"\t"+depth[1]);
+            System.out.println(i+"\t"+depth[0][i]+"\t"+depth[1][i]);
         }
         try {
             File outputFile = new File(keyFile.substring(0, keyFile.indexOf(".hmp")) + "SiteDepthDiagnostic.txt");
             DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
             outStream.writeBytes("Depth\tMaskedSites\tUnmaskedSites");
-            for (int d = 0; d < depth[0].length; d++) {
-                outStream.writeBytes("\n"+d+"\t");
-                outStream.writeLong(depth[0][d]);
-                outStream.writeBytes("\t");
-                outStream.writeLong(depth[1][d]);
-            }
+            for (int d = 0; d < depth[0].length; d++) {outStream.writeBytes("\n"+d+"\t"+depth[0][d]+"\t"+depth[1][d]);}
         }
         catch (Exception e) {
         }
