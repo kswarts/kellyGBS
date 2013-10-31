@@ -27,6 +27,7 @@ import org.apache.commons.lang.ArrayUtils;
 //gets site depth statistics from the unmasked file. can restrict sites calculated for by the key file, but takes taxon from the unmasked file
 public class Diagnostics {
     public static void maskedSitesDepth(String keyFile, String unmaskedFile) {
+        boolean reachEnd= false;
         MutableNucleotideAlignmentHDF5 key= MutableNucleotideAlignmentHDF5.getInstance(keyFile);
         MutableNucleotideAlignmentHDF5 unmasked= MutableNucleotideAlignmentHDF5.getInstance(unmaskedFile);
         int[][] depth= new int[2][1000];//first array (index 0) is for masked sites, index 1 for unmasked sites
@@ -40,9 +41,10 @@ public class Diagnostics {
             for (int taxon = 0; taxon < unmasked.getSequenceCount(); taxon++) {
                 currDepth= 0;
                 for (byte i:unmasked.getDepthForAlleles(taxon, unmaskedSite)) {currDepth+= i;}
-                if (depth[which][currDepth]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); break;}
+                if (depth[which][currDepth]==Integer.MAX_VALUE) {System.out.println("Reached long max at site "+(site-1)); reachEnd= true; break;}
                 else depth[which][currDepth]++;
             }
+            if (reachEnd) break;
             System.out.println("Complete site "+site+" of "+key.getSiteCount());
         }
         System.out.println("Depth\tMaskedSites\tUnmaskedSites");
