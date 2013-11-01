@@ -124,6 +124,27 @@ public class Diagnostics {
         }
     }
     
+    public static void getCovByTaxon(String file) {
+            Alignment a= ImportUtils.readGuessFormat(file, false);
+            try {
+            File outputFile = new File(file.substring(0, file.indexOf(".hmp")) + "TaxonCovDiagnostic.txt");
+            DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+                int notMiss= 0;
+                for (int site = 0; site < a.getSiteCount(); site++) {
+                    if (a.getBase(taxon, site)==Alignment.UNKNOWN_DIPLOID_ALLELE) notMiss++;
+                }
+                double cov= notMiss/(double)a.getSiteCount();
+                if (taxon!=0) outStream.writeBytes("\n"+Double.toString(cov));
+                else outStream.writeBytes(Double.toString(cov));
+            }
+            outStream.close();
+        }
+        catch (Exception e) {
+            System.out.println("Problem outputting file");
+        }
+    }
+    
     public static void main(String[] args) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         String dir;
@@ -132,15 +153,24 @@ public class Diagnostics {
 //        String dir= "/Users/kls283/Desktop/Imputation/";
         String keyFile= dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth7_Denom7.hmp.h5";
         String unmasked= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
-        maskedSitesDepth(keyFile, unmasked);
+//        maskedSitesDepth(keyFile, unmasked);
         
         dir= "/home/kls283/Documents/Imputation/beagle/";
         String[] files= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-        removeIndelsForBeagle(dir, ".hmp.h5");
-        removeIndelsForBeagle(files);
+//        removeIndelsForBeagle(dir, ".hmp.h5");
+//        removeIndelsForBeagle(files);
+        
+        dir= "/Users/kls283/Desktop/Imputation/";
+        String[] covfiles= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.hmp.h5",
+            dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.hmp.h5",
+            dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.hmp.h5"};
+//        for (String file:covfiles) {getCovByTaxon(file);}
+        
+        String file= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByAmesTemperatechr8.hmp.h5";
+        getCovByTaxon(file);
         
         }
 }
