@@ -282,8 +282,10 @@ public class FindMergeKelly extends AbstractPlugin {
                    hits.add(taxon2);
                }
             }
-            byte[] calls=null;
-            if(((hits.size()+1)<this.minTaxaInGroup)) continue;
+            byte[] calls=inAlign.getBaseRange(taxon1, startSite, endSite+1);//kls
+            int[] unkCnt=countUnknown(calls);//kls
+            double missingFreq=(double)unkCnt[0]/(double)inAlign.getSiteCount();//kls
+            if(((hits.size()+1)<this.minTaxaInGroup)&&missingFreq>maximumMissing) continue;//KLS changed this to not skip over taxa with no neighbors, but high coverage
             if(hits.size()>0) {
                 ArrayList<String> mergeNames=new ArrayList<String>();
                 mergeNames.add(inIDG.getIdentifier(taxon1).getFullName());
@@ -299,8 +301,8 @@ public class FindMergeKelly extends AbstractPlugin {
             } else {
                 calls=inAlign.getBaseRange(taxon1, startSite, endSite+1);
             }
-            int[] unkCnt=countUnknown(calls);
-            double missingFreq=(double)unkCnt[0]/(double)inAlign.getSiteCount();
+            unkCnt=countUnknown(calls);//kls
+            missingFreq=(double)unkCnt[0]/(double)inAlign.getSiteCount();//kls
             double hetFreq=(double)unkCnt[1]/(double)(inAlign.getSiteCount()-unkCnt[0]);
             if(((missingFreq<maximumMissing)&&(hetFreq<maxHetFreq))) {
                 int index=(hits.size()*200000)+taxon1;
