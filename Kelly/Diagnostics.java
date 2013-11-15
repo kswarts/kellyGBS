@@ -106,6 +106,7 @@ public class Diagnostics {
             if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
             Alignment a= ImportUtils.readGuessFormat(readFile, true);
+            System.out.println(readFile+ " read into Alignment with "+a.getSequenceCount()+" taxa and "+a.getSiteCount()+" sites.");
             MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
             ArrayList<Integer> keepSites= new ArrayList<>();
             for (int site = 0; site < a.getSiteCount(); site++) {
@@ -135,6 +136,7 @@ public class Diagnostics {
             Alignment fat= FilterAlignment.getInstance(fa, new SimpleIdGroup(ids));//filter taxa
             ExportUtils.writeToVCF(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz", '\t');
             ExportUtils.writeToHDF5(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5");
+            System.out.println(fat.getSequenceCount()+" taxa and "+fat.getSiteCount()+" sites output to file "+(readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5"));
         }
     }
     
