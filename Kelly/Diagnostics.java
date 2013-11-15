@@ -14,9 +14,13 @@ import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.Locus;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
+import net.maizegenetics.pal.ids.IdGroup;
+import net.maizegenetics.pal.ids.Identifier;
+import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.prefs.TasselPrefs;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -56,6 +60,7 @@ public class Diagnostics {
             DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
             outStream.writeBytes("Depth\tMaskedSites\tUnmaskedSites");
             for (int d = 0; d < depth[0].length; d++) {outStream.writeBytes("\n"+d+"\t"+depth[0][d]+"\t"+depth[1][d]);}
+            outStream.close();
         }
         catch (Exception e) {
         }
@@ -93,7 +98,7 @@ public class Diagnostics {
         }
     }
     
-    public static void removeIndelsForBeagle(String dir, String fileType) {
+    public static void removeIndelsForBeagle(String dir, String fileType, boolean onlyPoly, double minSiteCov, double minTaxaCov) {
         File[] inFiles= new File(dir).listFiles();
         
         for (File file:inFiles) {
@@ -109,6 +114,8 @@ public class Diagnostics {
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE)
                     continue;
+                if ((a.getTotalNotMissing(site)/a.getSequenceCount())<minSiteCov) continue;
+                if (onlyPoly&&a.getMinorAlleleFrequency(site)<.0000000000000000000000001) continue;
                 keepSites.add(site);
                 if (a.getAlleles(site).length>2) {
                     byte badGeno= AlignmentUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE, NucleotideAlignmentConstants.INSERT_ALLELE);
@@ -119,8 +126,42 @@ public class Diagnostics {
                     }
                 }
             }
-            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
-            ExportUtils.writeToVCF(fa, readFile.substring(0, readFile.indexOf(fileType))+"NoIndels.vcf.gz", '\t');
+            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));//filter sites
+            ArrayList<Identifier> ids= new ArrayList<>();
+            for (int taxon = 0; taxon < fa.getSequenceCount(); taxon++) {
+                if (fa.getTotalNotMissingForTaxon(taxon)/fa.getSiteCount()<minTaxaCov) continue;
+                ids.add(fa.getIdGroup().getIdentifier(taxon));
+            }
+            Alignment fat= FilterAlignment.getInstance(fa, new SimpleIdGroup(ids));//filter taxa
+            ExportUtils.writeToVCF(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz", '\t');
+            ExportUtils.writeToHDF5(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5");
+        }
+    }
+    
+    //match sites should be a subset of mod sites
+    //this was written to subset the large file to make donors that match the specific populations to impute
+    public static void matchSites(String dirToMatch, String fileType, String fileToMod) {
+        Alignment mod= ImportUtils.readGuessFormat(fileToMod, true);
+        File[] inFiles= new File(dirToMatch).listFiles();
+        
+        for (File file:inFiles) {
+            String readFile= null;
+            if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
+            if (readFile==null) continue;
+            Alignment match= ImportUtils.readGuessFormat(readFile, true);
+            ArrayList<Integer> keepModSites= new ArrayList<>();//keep sites in mod that have the same physical position in match
+            ArrayList<Integer> keepMatchSites= new ArrayList<>();//remove sites in match that don't exist in mod
+            int modSite= 0;
+            for (int site = 0; site < match.getSiteCount(); site++) {
+                modSite= mod.getSiteOfPhysicalPosition(match.getPositionInLocus(site), mod.getLocus(match.getLocusName(site)));
+                if (modSite>-1) {keepModSites.add(modSite); keepMatchSites.add(site);}
+            }
+            FilterAlignment faMod= FilterAlignment.getInstance(mod, ArrayUtils.toPrimitive(keepModSites.toArray(new Integer[keepModSites.size()])));//filter sites
+            ExportUtils.writeToHDF5(faMod, fileToMod.substring(0, fileToMod.length()-7)+"Match"+file.getName().substring(0, file.getName().length()-7)+".hmp.h5");
+            if (keepMatchSites.size()!=match.getSiteCount()) {
+                FilterAlignment faMatch= FilterAlignment.getInstance(match, ArrayUtils.toPrimitive(keepMatchSites.toArray(new Integer[keepModSites.size()])));
+                ExportUtils.writeToHDF5(faMatch, readFile.substring(0, readFile.indexOf(fileType))+"Match"+fileToMod.substring(fileToMod.lastIndexOf('/'), file.getName().length()-7)+".hmp.h5");
+            }
         }
     }
     
@@ -160,7 +201,7 @@ public class Diagnostics {
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-//        removeIndelsForBeagle(dir, ".hmp.h5");
+//        removeIndelsForBeagle(dir, ".hmp.h5", true, .1,.1);
 //        removeIndelsForBeagle(files);
         
         dir= "/Users/kls283/Desktop/Imputation/";
