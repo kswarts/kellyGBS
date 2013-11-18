@@ -98,25 +98,34 @@ public class Diagnostics {
         }
     }
     
-    public static void removeIndelsForBeagle(String dir, String fileType, boolean onlyPoly, double minSiteCov, double minTaxaCov) {
+    //modSitesInMasterFile must contain all of the sites in the same order as in file. For subsetting the full h5 by taxa filtered but not site filtered subsets
+    public static void removeIndelsForBeagle(String dir, String fileType, boolean onlyPoly, double minSiteCov, double minTaxaCov, String modSitesInMasterFile) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
         File[] inFiles= new File(dir).listFiles();
         
         for (File file:inFiles) {
             String readFile= null;
             if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
-            Alignment a= ImportUtils.readGuessFormat(readFile, true);
+            Alignment a=  (fileType.contains("hmp.txt"))?ImportUtils.readFromHapmap(readFile, null):ImportUtils.readGuessFormat(readFile, true);
             System.out.println(readFile+ " read into Alignment with "+a.getSequenceCount()+" taxa and "+a.getSiteCount()+" sites.");
-            MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a);
+            MutableNucleotideAlignment mna;
+            if (!fileType.contains("hmp.txt")) {
+                ExportUtils.writeToHapmap(a, true, readFile.substring(0, readFile.indexOf(fileType))+".hmp.txt.gz", '\t', null);
+                a= ImportUtils.readFromHapmap(readFile.substring(0, readFile.indexOf(fileType))+".hmp.txt.gz", null);
+                mna= MutableNucleotideAlignment.getInstance(a);
+                System.out.println("Output to hmp.txt.gz and generated MNA: "+readFile.substring(0, readFile.indexOf(fileType)));
+            }
+            else {mna= MutableNucleotideAlignment.getInstance(a);}
             ArrayList<Integer> keepSites= new ArrayList<>();
             for (int site = 0; site < a.getSiteCount(); site++) {
+                mna.setSNPID(site, a.getSNPID(site));
                 if (a.getMajorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
                         a.getMajorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE||
                         a.getMinorAllele(site)== NucleotideAlignmentConstants.GAP_ALLELE||
-                        a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE)
-                    continue;
-                if ((a.getTotalNotMissing(site)/a.getSequenceCount())<minSiteCov) continue;
-                if (onlyPoly&&a.getMinorAlleleFrequency(site)<.0000000000000000000000001) continue;
+                        a.getMinorAllele(site)== NucleotideAlignmentConstants.INSERT_ALLELE) {mna.clearSiteForRemoval(site); continue;}
+                if ((a.getTotalNotMissing(site)/((double)a.getSequenceCount()))<minSiteCov) {mna.clearSiteForRemoval(site); continue;}
+                if (onlyPoly&&a.getMinorAlleleFrequency(site)<.0000000000000000000000001) {mna.clearSiteForRemoval(site); continue;}
                 keepSites.add(site);
                 if (a.getAlleles(site).length>2) {
                     byte badGeno= AlignmentUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE, NucleotideAlignmentConstants.INSERT_ALLELE);
@@ -127,16 +136,23 @@ public class Diagnostics {
                     }
                 }
             }
-            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));//filter sites
+            int[] snpIndex= ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()]));
+            mna.clean();
+//            FilterAlignment fa= FilterAlignment.getInstance(mna, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));//filter sites
             ArrayList<Identifier> ids= new ArrayList<>();
-            for (int taxon = 0; taxon < fa.getSequenceCount(); taxon++) {
-                if (fa.getTotalNotMissingForTaxon(taxon)/fa.getSiteCount()<minTaxaCov) continue;
-                ids.add(fa.getIdGroup().getIdentifier(taxon));
+            for (int taxon = 0; taxon < mna.getSequenceCount(); taxon++) {
+                if (((double)mna.getTotalNotMissingForTaxon(taxon)/(double)mna.getSiteCount())<minTaxaCov) continue;
+                ids.add(mna.getIdGroup().getIdentifier(taxon));
             }
-            Alignment fat= FilterAlignment.getInstance(fa, new SimpleIdGroup(ids));//filter taxa
-            ExportUtils.writeToVCF(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz", '\t');
-            ExportUtils.writeToHDF5(fat, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5");
+            IdGroup IDs= new SimpleIdGroup(ids);
+            Alignment fat= FilterAlignment.getInstance(mna, IDs);//filter taxa
+            String vcfFileName= readFile.substring(0, readFile.indexOf(".hmp.txt"))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz";
+            ExportUtils.writeToVCF(fat, vcfFileName, '\t');
+            ExportUtils.writeToHapmap(fat, true, readFile.substring(0, readFile.indexOf(".hmp.txt"))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.txt.gz", '\t', null);
             System.out.println(fat.getSequenceCount()+" taxa and "+fat.getSiteCount()+" sites output to file "+(readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5"));
+            if (modSitesInMasterFile!=null) {
+                ExportUtils.writeToMutableHDF5((Alignment)MutableNucleotideAlignmentHDF5.getInstance(modSitesInMasterFile), modSitesInMasterFile.substring(0,modSitesInMasterFile.length()-7)+"Match"+readFile.substring(readFile.lastIndexOf('/'),readFile.indexOf(fileType))+".hmp.h5",snpIndex);
+            }
         }
     }
     
@@ -144,6 +160,7 @@ public class Diagnostics {
     //this was written to subset the large file to make donors that match the specific populations to impute
     public static void matchSites(String dirToMatch, String fileType, String fileToMod) {
         Alignment mod= ImportUtils.readGuessFormat(fileToMod, true);
+        System.out.println(fileToMod+ " (mod file) read into Alignment with "+mod.getSequenceCount()+" taxa and "+mod.getSiteCount()+" sites.");
         File[] inFiles= new File(dirToMatch).listFiles();
         
         for (File file:inFiles) {
@@ -151,6 +168,7 @@ public class Diagnostics {
             if (file.isFile() && file.getName().endsWith(fileType)) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
             Alignment match= ImportUtils.readGuessFormat(readFile, true);
+            System.out.println(readFile+ " (match file) read into Alignment with "+match.getSequenceCount()+" taxa and "+match.getSiteCount()+" sites.");
             ArrayList<Integer> keepModSites= new ArrayList<>();//keep sites in mod that have the same physical position in match
             ArrayList<Integer> keepMatchSites= new ArrayList<>();//remove sites in match that don't exist in mod
             int modSite= 0;
@@ -160,9 +178,11 @@ public class Diagnostics {
             }
             FilterAlignment faMod= FilterAlignment.getInstance(mod, ArrayUtils.toPrimitive(keepModSites.toArray(new Integer[keepModSites.size()])));//filter sites
             ExportUtils.writeToHDF5(faMod, fileToMod.substring(0, fileToMod.length()-7)+"Match"+file.getName().substring(0, file.getName().length()-7)+".hmp.h5");
+            System.out.println(faMod.getSequenceCount()+" taxa and "+faMod.getSiteCount()+" sites output to file "+(fileToMod.substring(0, fileToMod.length()-7)+"Match"+file.getName().substring(0, file.getName().length()-7)+".hmp.h5"));
             if (keepMatchSites.size()!=match.getSiteCount()) {
                 FilterAlignment faMatch= FilterAlignment.getInstance(match, ArrayUtils.toPrimitive(keepMatchSites.toArray(new Integer[keepModSites.size()])));
                 ExportUtils.writeToHDF5(faMatch, readFile.substring(0, readFile.indexOf(fileType))+"Match"+fileToMod.substring(fileToMod.lastIndexOf('/'), file.getName().length()-7)+".hmp.h5");
+                System.out.println("Sites in match file not found in mod file. Remove these sites\n"+faMatch.getSequenceCount()+" taxa and "+faMatch.getSiteCount()+" sites output to file "+(fileToMod.substring(fileToMod.lastIndexOf('/'), file.getName().length()-7)+".hmp.h5"));
             }
         }
     }
@@ -198,12 +218,14 @@ public class Diagnostics {
         String unmasked= dir+"AllZeaGBS_v2.7wDepth.hmp.h5";
 //        maskedSitesDepth(keyFile, unmasked);
         
-        dir= "/home/kls283/Documents/Imputation/beagle/";
+        dir= "/Users/kls283/Desktop/Imputation/beagle/new";
+        dir= "/home/kls283/Documents/Imputation/beagle/new/";
+        String masterFile= "/home/kls283/Documents/Imputation/AllZeaGBS_v2.7wDepth.hmp.h5";
         String[] files= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-//        removeIndelsForBeagle(dir, ".hmp.h5", true, .1,.1);
+        removeIndelsForBeagle(dir, ".hmp.txt.gz", true, .1,.1,masterFile);
 //        removeIndelsForBeagle(files);
         
         dir= "/Users/kls283/Desktop/Imputation/";
@@ -213,7 +235,7 @@ public class Diagnostics {
 //        for (String file:covfiles) {getCovByTaxon(file);}
         
         String file= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByAmesTemperatechr8.hmp.h5";
-        getCovByTaxon(file);
+//        getCovByTaxon(file);
         
         }
 }
