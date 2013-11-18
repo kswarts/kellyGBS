@@ -146,12 +146,12 @@ public class Diagnostics {
             }
             IdGroup IDs= new SimpleIdGroup(ids);
             Alignment fat= FilterAlignment.getInstance(mna, IDs);//filter taxa
-            String vcfFileName= readFile.substring(0, readFile.indexOf(".hmp.txt"))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz";
+            String vcfFileName= readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".vcf.gz";
             ExportUtils.writeToVCF(fat, vcfFileName, '\t');
-            ExportUtils.writeToHapmap(fat, true, readFile.substring(0, readFile.indexOf(".hmp.txt"))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.txt.gz", '\t', null);
+            ExportUtils.writeToHapmap(fat, true, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.txt.gz", '\t', null);
             System.out.println(fat.getSequenceCount()+" taxa and "+fat.getSiteCount()+" sites output to file "+(readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5"));
             if (modSitesInMasterFile!=null) {
-                ExportUtils.writeToMutableHDF5((Alignment)MutableNucleotideAlignmentHDF5.getInstance(modSitesInMasterFile), modSitesInMasterFile.substring(0,modSitesInMasterFile.length()-7)+"Match"+readFile.substring(readFile.lastIndexOf('/'),readFile.indexOf(fileType))+".hmp.h5",snpIndex);
+                ExportUtils.writeToMutableHDF5((Alignment)MutableNucleotideAlignmentHDF5.getInstance(modSitesInMasterFile), modSitesInMasterFile.substring(0,modSitesInMasterFile.length()-7)+"Match"+readFile.substring(readFile.lastIndexOf('/'),readFile.indexOf(".hmp"))+".hmp.h5",snpIndex);
             }
         }
     }
