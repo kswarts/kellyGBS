@@ -14,9 +14,9 @@ import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
-import net.maizegenetics.pal.alignment.Locus;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
+import net.maizegenetics.pal.alignment.MutableVCFAlignment;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.Identifier;
@@ -151,7 +151,7 @@ public class Diagnostics {
             ExportUtils.writeToHapmap(fat, true, readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.txt.gz", '\t', null);
             System.out.println(fat.getSequenceCount()+" taxa and "+fat.getSiteCount()+" sites output to file "+(readFile.substring(0, readFile.indexOf(fileType))+"NoIndelsMinTCov"+minTaxaCov+"MinSCov"+minSiteCov+((onlyPoly==true)?"Poly":"Mono")+".hmp.h5"));
             if (modSitesInMasterFile!=null) {
-                ExportUtils.writeToMutableHDF5((Alignment)MutableNucleotideAlignmentHDF5.getInstance(modSitesInMasterFile), modSitesInMasterFile.substring(0,modSitesInMasterFile.length()-7)+"Match"+readFile.substring(readFile.lastIndexOf('/'),readFile.indexOf(".hmp"))+".hmp.h5",snpIndex);
+                ExportUtils.writeToMutableHDF5(((Alignment)MutableNucleotideAlignmentHDF5.getInstance(modSitesInMasterFile)), (modSitesInMasterFile.substring(0,modSitesInMasterFile.length()-7)+"Match"+readFile.substring(readFile.indexOf("By")+2,readFile.indexOf(fileType))+".hmp.h5"),snpIndex);
             }
         }
     }
@@ -185,6 +185,42 @@ public class Diagnostics {
                 System.out.println("Sites in match file not found in mod file. Remove these sites\n"+faMatch.getSequenceCount()+" taxa and "+faMatch.getSiteCount()+" sites output to file "+(fileToMod.substring(fileToMod.lastIndexOf('/'), file.getName().length()-7)+".hmp.h5"));
             }
         }
+    }
+    
+    public static void recoverBeaglePhase(String vcfImputedFile, String unimputedFileName, String addFileName) {
+        byte N= Alignment.UNKNOWN_DIPLOID_ALLELE;
+        MutableVCFAlignment[] aligns= ImportUtils.readFromVCFPhasedToHaplotype(vcfImputedFile, null);
+        String outHapRoot= vcfImputedFile.substring(0, vcfImputedFile.indexOf(".vcf"));
+        ExportUtils.writeToHapmap(aligns[0], false, outHapRoot+"ImpHapOne.hmp.txt.gz", '\t', null);
+        System.out.println(outHapRoot+"ImpHapOne.hmp.txt.gz"+" written out with "+aligns[0].getSequenceCount()+" sites and "+aligns[0].getSiteCount()+" sites");
+        ExportUtils.writeToHapmap(aligns[1], false, outHapRoot+"ImpHapTwo.hmp.txt.gz", '\t', null);
+        System.out.println(outHapRoot+"ImpHapTwo.hmp.txt.gz"+" written out with "+aligns[1].getSequenceCount()+" sites and "+aligns[1].getSiteCount()+" sites");
+        MutableNucleotideAlignment hapOne= MutableNucleotideAlignment.getInstance(ImportUtils.readGuessFormat(outHapRoot+"ImpHapOne.hmp.txt.gz",true));
+        MutableNucleotideAlignment hapTwo= MutableNucleotideAlignment.getInstance(ImportUtils.readGuessFormat(outHapRoot+"ImpHapTwo.hmp.txt.gz",true));
+        Alignment unimp= ImportUtils.readFromVCF(unimputedFileName, null);
+        System.out.println(unimputedFileName+" read in with "+unimp.getSequenceCount()+" sites and "+unimp.getSiteCount()+" sites");
+        for (int site = 0; site < unimp.getSiteCount(); site++) {
+            for (int taxon = 0; taxon < unimp.getSequenceCount(); taxon++) {
+                if (unimp.getBase(taxon, site)==N) {hapOne.setBase(taxon, site, N); hapTwo.setBase(taxon, site, N);}
+            }
+        }
+        hapOne.clean();
+        hapTwo.clean();
+        if (addFileName!=null) {
+            Alignment add= ImportUtils.readGuessFormat(addFileName, true);
+            String outFile= addFileName.substring(0,addFileName.indexOf(".hmp"))+"BeaglePhased.hmp.h5";
+            ExportUtils.writeToMutableHDF5(add, outFile);
+            MutableNucleotideAlignmentHDF5 combine= MutableNucleotideAlignmentHDF5.getInstance(outFile);
+            for (int taxon = 0; taxon < hapOne.getSequenceCount(); taxon++) {
+                combine.addTaxon(hapOne.getIdGroup().getIdentifier(taxon), hapOne.getBaseRow(taxon), null);
+                combine.addTaxon(hapTwo.getIdGroup().getIdentifier(taxon), hapTwo.getBaseRow(taxon), null);
+            }
+            combine.clean();
+            System.out.println(outFile+" written out with "+combine.getSequenceCount()+" sites and "+combine.getSiteCount()+" sites (from "+add.getSequenceCount()+" sites)");
+        }
+        ExportUtils.writeToHapmap(hapOne, false, outHapRoot+"PhaseHapOne.hmp.txt.gz", '\t', null);
+        ExportUtils.writeToHapmap(hapTwo, false, outHapRoot+"PhaseHapTwo.hmp.txt.gz", '\t', null);
+        
     }
     
     public static void getCovByTaxon(String file) {
@@ -225,7 +261,7 @@ public class Diagnostics {
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy282Allchr8.vcf.gz"};
-        removeIndelsForBeagle(dir, ".hmp.txt.gz", true, .1,.1,masterFile);
+//        removeIndelsForBeagle(dir, ".hmp.txt.gz", true, .1,.1,masterFile);
 //        removeIndelsForBeagle(files);
         
         dir= "/Users/kls283/Desktop/Imputation/";
@@ -237,5 +273,9 @@ public class Diagnostics {
         String file= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByAmesTemperatechr8.hmp.h5";
 //        getCovByTaxon(file);
         
+        dir= "/Users/kls283/Desktop/Imputation/beagle/";
+        String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndelsBeagleBase.vcf.gz";
+        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
+        recoverBeaglePhase(inVCFFile, unimpVCF,null);
         }
 }
