@@ -187,6 +187,23 @@ public class Diagnostics {
         }
     }
     
+    public static void mergeTaxa(String dir, String outFileName) {
+        TasselPrefs.putAlignmentRetainRareAlleles(false);
+        File[] inFiles= new File(dir).listFiles();
+        MutableNucleotideAlignmentHDF5 mna= null;
+        ArrayList<Alignment> aligns= new ArrayList<>();
+        for (File file:inFiles) {
+            String readFile= null;
+            if (file.isFile()) readFile= file.getAbsolutePath();
+            if (readFile==null) continue;
+            Alignment a=  ImportUtils.readGuessFormat(readFile, true);
+            aligns.add(a);
+        }
+        MutableNucleotideAlignment.getInstance(aligns.toArray(new Alignment[aligns.size()]));
+        mna.clean();
+        ExportUtils.writeToHDF5(mna, outFileName);
+    }
+    
     public static void recoverBeaglePhase(String vcfImputedFile, String unimputedFileName, String addFileName) {
         byte N= Alignment.UNKNOWN_DIPLOID_ALLELE;
         MutableVCFAlignment[] aligns= ImportUtils.readFromVCFPhasedToHaplotype(vcfImputedFile, null);
@@ -201,7 +218,16 @@ public class Diagnostics {
         System.out.println(unimputedFileName+" read in with "+unimp.getSequenceCount()+" sites and "+unimp.getSiteCount()+" sites");
         for (int site = 0; site < unimp.getSiteCount(); site++) {
             for (int taxon = 0; taxon < unimp.getSequenceCount(); taxon++) {
+                String unimpBase= unimp.getBaseAsString(taxon, site);
+                String hapOneBase= hapOne.getBaseAsString(taxon, site);
+                String hapTwoBase= hapTwo.getBaseAsString(taxon, site);
                 if (unimp.getBase(taxon, site)==N) {hapOne.setBase(taxon, site, N); hapTwo.setBase(taxon, site, N);}
+                else if (AlignmentUtils.isHeterozygous(unimp.getBase(taxon, site))) continue;
+                else if (AlignmentUtils.isHeterozygous(AlignmentUtils.getDiploidValue(hapOne.getBaseArray(taxon, site)[0], hapTwo.getBaseArray(taxon, site)[0]))) {
+                    //get rid of the imputed other allele
+                    if (AlignmentUtils.isEqualOrUnknown(unimp.getBase(taxon, site), hapOne.getBase(taxon, site))) hapTwo.setBase(taxon, site, N);
+                    else hapOne.setBase(taxon, site, N);
+                }
             }
         }
         hapOne.clean();
@@ -256,7 +282,7 @@ public class Diagnostics {
         
         dir= "/Users/kls283/Desktop/Imputation/beagle/new";
         dir= "/home/kls283/Documents/Imputation/beagle/new/";
-        String masterFile= "/home/kls283/Documents/Imputation/AllZeaGBS_v2.7wDepth.hmp.h5";
+        String masterFile= "/home/kls283/Documents/Imputation/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7.hmp.h5";
         String[] files= new String[] {dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth5_Denom11StrictSubsetBy282Allchr8.vcf.gz",
         dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8.vcf.gz",
@@ -273,9 +299,15 @@ public class Diagnostics {
         String file= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByAmesTemperatechr8.hmp.h5";
 //        getCovByTaxon(file);
         
-        dir= "/Users/kls283/Desktop/Imputation/beagle/";
-        String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndelsBeagleBase.vcf.gz";
-        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
+//        dir= "/Users/kls283/Desktop/Imputation/beagle/";
+//        String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr8NoIndelsBeagleBase.vcf.gz";
+//        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
+        dir= "/home/kls283/Documents/Imputation/beagle/";
+        for (int chr = 1; chr < 11; chr++) {
+            String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBase.vcf.gz";
+        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr"+Integer.toString(chr)+"NoIndels.vcf.gz";
         recoverBeaglePhase(inVCFFile, unimpVCF,null);
+        }
+        
         }
 }
