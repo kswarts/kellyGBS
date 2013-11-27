@@ -190,23 +190,21 @@ public class Diagnostics {
     public static void mergeTaxa(String dir, String outFileName) {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         File[] inFiles= new File(dir).listFiles();
-        MutableNucleotideAlignmentHDF5 mna= null;
         ArrayList<Alignment> aligns= new ArrayList<>();
         for (File file:inFiles) {
             String readFile= null;
             if (file.isFile()) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
-            Alignment a=  ImportUtils.readGuessFormat(readFile, true);
+            Alignment a=  (readFile.contains(".vcf"))?ImportUtils.readFromVCF(readFile, null, 6):ImportUtils.readGuessFormat(readFile, true);
             aligns.add(a);
+            System.out.println("Read in and added "+file.getName());
         }
-        MutableNucleotideAlignment.getInstance(aligns.toArray(new Alignment[aligns.size()]));
-        mna.clean();
-        ExportUtils.writeToHDF5(mna, outFileName);
+        ExportUtils.mergeToMutableHDF5(aligns.toArray(new Alignment[aligns.size()]), outFileName);
     }
     
-    public static void recoverBeaglePhase(String vcfImputedFile, String unimputedFileName, String addFileName) {
+    public static void recoverBeaglePhase(String vcfImputedFile, String unimputedFileName, int maxAlleles, String addFileName) {
         byte N= Alignment.UNKNOWN_DIPLOID_ALLELE;
-        MutableVCFAlignment[] aligns= ImportUtils.readFromVCFPhasedToHaplotype(vcfImputedFile, null);
+        MutableVCFAlignment[] aligns= ImportUtils.readFromVCFPhasedToHaplotype(vcfImputedFile, maxAlleles, null);
         String outHapRoot= vcfImputedFile.substring(0, vcfImputedFile.indexOf(".vcf"));
         ExportUtils.writeToHapmap(aligns[0], false, outHapRoot+"ImpHapOne.hmp.txt.gz", '\t', null);
         System.out.println(outHapRoot+"ImpHapOne.hmp.txt.gz"+" written out with "+aligns[0].getSequenceCount()+" sites and "+aligns[0].getSiteCount()+" sites");
@@ -299,15 +297,20 @@ public class Diagnostics {
         String file= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByAmesTemperatechr8.hmp.h5";
 //        getCovByTaxon(file);
         
-//        dir= "/Users/kls283/Desktop/Imputation/beagle/";
-//        String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr8NoIndelsBeagleBase.vcf.gz";
-//        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
-        dir= "/home/kls283/Documents/Imputation/beagle/";
-        for (int chr = 1; chr < 11; chr++) {
-            String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBase.vcf.gz";
-        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr"+Integer.toString(chr)+"NoIndels.vcf.gz";
-        recoverBeaglePhase(inVCFFile, unimpVCF,null);
-        }
+        dir= "/Users/kls283/Desktop/Imputation/beagle/";
+        String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndelsBeagleBase.vcf.gz";
+        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
+        recoverBeaglePhase(inVCFFile, unimpVCF,6, null);
+//        dir= "/home/kls283/Documents/Imputation/beagle/";
+//        for (int chr = 1; chr < 11; chr++) {
+//            String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBase.vcf.gz";
+//        String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr"+Integer.toString(chr)+"NoIndels.vcf.gz";
+//        recoverBeaglePhase(inVCFFile, unimpVCF,6, null);
+//        }
         
+        //merge files in a directory
+        dir= "home/kls283/Documents/Imputation/beagle/new/";
+        String out= "AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDPhasedHapsOne.hmp.h5";
+        mergeTaxa(dir, out);
         }
 }
