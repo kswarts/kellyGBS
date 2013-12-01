@@ -277,26 +277,24 @@ public class Diagnostics {
         
         //go through and check to see if taxa in the haps files already exist in the master. if not, add haps to mna and fill with diploid genotypes from the master
         IdGroup mnaID= mna.getIdGroup();
-        int[] origMasterTaxonIndices= new int[haps[0].getSequenceCount()];
+        int[] origMNATaxonIndices= new int[haps[0].getSequenceCount()];
         byte[] empty= new byte[mna.getSiteCount()];
         for (int b = 0; b < empty.length; b++) {empty[b]= Alignment.UNKNOWN_DIPLOID_ALLELE;}
         for (int taxon = 0; taxon < haps[0].getSequenceCount(); taxon++) {
-            int hapInMaster= mnaID.whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
+            int hapInMNA= mnaID.whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
             String origName;
-            if (hapInMaster<0) {//if haplotypes are not already present in mna
+            if (hapInMNA<0) {//if haplotypes are not already present in mna
                 String name[]= haps[0].getIdGroup().getIdentifier(taxon).getFullName().split(":");
                 origName= name[0].substring(0, (name[0].indexOf((name[0].contains("One"))?"One":"Two")));
                 for (int n = 1; n < name.length; n++) { origName+= ":"+name[n];}
-                origMasterTaxonIndices[taxon]= mnaID.whichIdNumber(origName);
-                if (origMasterTaxonIndices[taxon]<0) {System.out.println(origName+" and it's haplotypes not present in mna. Not included"); continue;}
-                else {//add hap names filled with the bases of the original unphased
-                    mna.addTaxon(haps[0].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMasterTaxonIndices[taxon]), null);
-                    mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMasterTaxonIndices[taxon]), null);
-                }
+                origMNATaxonIndices[taxon]= mnaID.whichIdNumber(origName);
+                //add hap names filled with the bases of the original unphased
+                mna.addTaxon(haps[0].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMNATaxonIndices[taxon]), null);
+                mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMNATaxonIndices[taxon]), null);
             }
         }
         mna.clean();
-        for (int i:origMasterTaxonIndices) {//remove originals
+        for (int i:origMNATaxonIndices) {//remove originals
             if (i>-1) mna.removeTaxon(mna.getIdGroup().whichIdNumber(master.getIdGroup().getIdentifier(i)));
         }
         mna.clean();
@@ -306,7 +304,7 @@ public class Diagnostics {
         for (int taxon= 0; taxon < haps[0].getSequenceCount(); taxon++) {
             int mnaTaxonOne= mna.getIdGroup().whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
             int mnaTaxonTwo= mna.getIdGroup().whichIdNumber(haps[1].getIdGroup().getIdentifier(taxon));
-            int origTaxon= origMasterTaxonIndices[taxon];
+            int origTaxon= origMNATaxonIndices[taxon];
             byte[] currMnaOne= mna.getBaseRow(mnaTaxonOne);
             byte[] currMnaTwo= mna.getBaseRow(mnaTaxonTwo);
             for (int masterSite = startMasterSite; masterSite < endMasterSite+1; masterSite++) {
@@ -334,6 +332,7 @@ public class Diagnostics {
             mna.setAllBases(mnaTaxonTwo, currMnaTwo);
         }
         mna.clean();
+        System.out.println("Finished files:/n"+hapFileOne+"\n"+hapFileTwo);
     }
     
     public static void getCovByTaxon(String file) {
