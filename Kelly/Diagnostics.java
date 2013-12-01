@@ -265,14 +265,12 @@ public class Diagnostics {
         
     }
     
-    public static void unimputeBeagleAddToMaster(String hapFileOne, String hapFileTwo, String phasedVCF, int maxAlleles, String masterFile) {
+    public static void unimputeBeagleAddToMaster(String hapFileOne, String hapFileTwo, String phasedVCF, int maxAlleles, String masterFile, Alignment master) {
         byte N= Alignment.UNKNOWN_DIPLOID_ALLELE;
         Alignment[] haps; 
         if (hapFileOne!=null&&hapFileTwo!=null) {haps= new Alignment[] {ImportUtils.readGuessFormat(hapFileOne, false),ImportUtils.readGuessFormat(hapFileTwo, false)}; 
             System.out.println("Read in hap files: "+hapFileOne+"\n"+hapFileTwo);}
         else haps= ImportUtils.readFromVCFPhasedToHaplotype(phasedVCF, maxAlleles, null);
-        Alignment master= ImportUtils.readGuessFormat(masterFile, false);
-        System.out.println("Read in master file: "+masterFile);
         String outFileName= masterFile.substring(0, masterFile.indexOf(".hmp"))+"withBeaglePhasedHapsFor"+hapFileOne.substring(hapFileOne.indexOf("By")+2, hapFileOne.indexOf("chr"))+".hmp.h5";
         if (new File(outFileName).exists()==false) {ExportUtils.writeToMutableHDF5(master, outFileName); System.out.println("Wrote new HDF5: "+outFileName);}
         MutableNucleotideAlignmentHDF5 mna= MutableNucleotideAlignmentHDF5.getInstance(outFileName);
@@ -400,12 +398,15 @@ public class Diagnostics {
 //        }
         
         //add phased vcf of imputed haplotype files to master file that includes these taxa, but may contain more sites/loci
-        dir= "/Users/kls283/Desktop/Imputation/";
+        dir= "/home/kls283/Documents/Imputation/";
+        String masterFileName= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7.hmp.h5";
+        Alignment master= ImportUtils.readGuessFormat(masterFileName, false);
+        System.out.println("Read in master file: "+masterFileName);
         for (int chr = 1; chr < 11; chr++) {
             String hapFileOne= dir+"beagle/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBaseImpHapOne.hmp.txt.gz";
             String hapFileTwo= dir+"beagle/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBaseImpHapTwo.hmp.txt.gz";
-            String master= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7.hmp.h5";
-            unimputeBeagleAddToMaster(hapFileOne, hapFileTwo, null, 6, master);
+            
+            unimputeBeagleAddToMaster(hapFileOne, hapFileTwo, null, 6, masterFileName, master);
         }
         
         //merge files in a directory
