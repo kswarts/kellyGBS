@@ -9,11 +9,13 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
 import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
+import net.maizegenetics.pal.alignment.Locus;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.MutableVCFAlignment;
@@ -191,15 +193,31 @@ public class Diagnostics {
         TasselPrefs.putAlignmentRetainRareAlleles(false);
         File[] inFiles= new File(dir).listFiles();
         ArrayList<Alignment> aligns= new ArrayList<>();
+        boolean first= true;
+        MutableNucleotideAlignmentHDF5 mna= null;
         for (File file:inFiles) {
             String readFile= null;
             if (file.isFile()) readFile= file.getAbsolutePath();
             if (readFile==null) continue;
             Alignment a=  (readFile.contains(".vcf"))?ImportUtils.readFromVCF(readFile, null, 6):ImportUtils.readGuessFormat(readFile, true);
             aligns.add(a);
+            if (first) {ExportUtils.writeToMutableHDF5(a, outFileName); first= false;}
+            else {
+                if (mna==null) mna= MutableNucleotideAlignmentHDF5.getInstance(outFileName);
+                else {
+                    for (int taxon = 0; taxon < a.getSequenceCount(); taxon++) {
+                        int mnaTaxon= -1;
+                        mnaTaxon=mna.getIdGroup().whichIdNumber(a.getTaxaName(taxon));
+                        for (int site = 0; site < a.getSiteCount(); site++) {
+                            File file1 = inFiles[site];
+                            
+                        }
+                        
+                    }
+                }
+            }
             System.out.println("Read in and added "+file.getName());
         }
-        ExportUtils.mergeToMutableHDF5(aligns.toArray(new Alignment[aligns.size()]), outFileName);
     }
     
     public static void recoverBeaglePhase(String vcfImputedFile, String unimputedFileName, int maxAlleles, String addFileName) {
@@ -245,6 +263,79 @@ public class Diagnostics {
         ExportUtils.writeToHapmap(hapOne, false, outHapRoot+"PhaseHapOne.hmp.txt.gz", '\t', null);
         ExportUtils.writeToHapmap(hapTwo, false, outHapRoot+"PhaseHapTwo.hmp.txt.gz", '\t', null);
         
+    }
+    
+    public static void unimputeBeagleAddToMaster(String hapFileOne, String hapFileTwo, String phasedVCF, int maxAlleles, String masterFile) {
+        byte N= Alignment.UNKNOWN_DIPLOID_ALLELE;
+        Alignment[] haps; 
+        if (hapFileOne!=null&&hapFileTwo!=null) {haps= new Alignment[] {ImportUtils.readGuessFormat(hapFileOne, false),ImportUtils.readGuessFormat(hapFileTwo, false)}; 
+            System.out.println("Read in hap files: "+hapFileOne+"\n"+hapFileTwo);}
+        else haps= ImportUtils.readFromVCFPhasedToHaplotype(phasedVCF, maxAlleles, null);
+        Alignment master= ImportUtils.readGuessFormat(masterFile, false);
+        System.out.println("Read in master file: "+masterFile);
+        String outFileName= masterFile.substring(0, masterFile.indexOf(".hmp"))+"withBeaglePhasedHapsFor"+hapFileOne.substring(hapFileOne.indexOf("By")+2, hapFileOne.indexOf("chr"))+".hmp.h5";
+        if (new File(outFileName).exists()==false) {ExportUtils.writeToMutableHDF5(master, outFileName); System.out.println("Wrote new HDF5: "+outFileName);}
+        MutableNucleotideAlignmentHDF5 mna= MutableNucleotideAlignmentHDF5.getInstance(outFileName);
+        
+        //go through and check to see if taxa in the haps files already exist in the master. if not, add haps to mna and fill with diploid genotypes from the master
+        IdGroup mnaID= mna.getIdGroup();
+        int[] origMasterTaxonIndices= new int[haps[0].getSequenceCount()];
+        byte[] empty= new byte[mna.getSiteCount()];
+        for (int b = 0; b < empty.length; b++) {empty[b]= Alignment.UNKNOWN_DIPLOID_ALLELE;}
+        for (int taxon = 0; taxon < haps[0].getSequenceCount(); taxon++) {
+            int hapInMaster= mnaID.whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
+            String origName;
+            if (hapInMaster<0) {//if haplotypes are not already present in mna
+                String name[]= haps[0].getIdGroup().getIdentifier(taxon).getFullName().split(":");
+                origName= name[0].substring(0, (name[0].indexOf((name[0].contains("One"))?"One":"Two")));
+                for (int n = 1; n < name.length; n++) { origName+= ":"+name[n];}
+                origMasterTaxonIndices[taxon]= mnaID.whichIdNumber(origName);
+                if (origMasterTaxonIndices[taxon]<0) {System.out.println(origName+" and it's haplotypes not present in mna. Not included"); continue;}
+                else {//add hap names filled with the bases of the original unphased
+                    mna.addTaxon(haps[0].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMasterTaxonIndices[taxon]), null);
+                    mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMasterTaxonIndices[taxon]), null);
+                }
+            }
+        }
+        mna.clean();
+        for (int i:origMasterTaxonIndices) {//remove originals
+            if (i>-1) mna.removeTaxon(mna.getIdGroup().whichIdNumber(master.getIdGroup().getIdentifier(i)));
+        }
+        mna.clean();
+        int startMasterSite= mna.getSiteOfPhysicalPosition(haps[0].getPositionInLocus(0),haps[0].getLocus(0));
+        int endMasterSite= mna.getSiteOfPhysicalPosition(haps[0].getPositionInLocus(haps[0].getSiteCount()-1), haps[0].getLocus(haps[0].getSiteCount()-1));
+            
+        for (int taxon= 0; taxon < haps[0].getSequenceCount(); taxon++) {
+            int mnaTaxonOne= mna.getIdGroup().whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
+            int mnaTaxonTwo= mna.getIdGroup().whichIdNumber(haps[1].getIdGroup().getIdentifier(taxon));
+            int origTaxon= origMasterTaxonIndices[taxon];
+            byte[] currMnaOne= mna.getBaseRow(mnaTaxonOne);
+            byte[] currMnaTwo= mna.getBaseRow(mnaTaxonTwo);
+            for (int masterSite = startMasterSite; masterSite < endMasterSite+1; masterSite++) {
+                int hapSite= haps[0].getSiteOfPhysicalPosition(master.getPositionInLocus(masterSite), master.getLocus(masterSite));
+                if (hapSite<0) continue;
+                else {
+                    String masterBase=master.getBaseAsString(origTaxon, masterSite);
+                    if (master.isHeterozygous(origTaxon, masterSite)) {
+                        masterBase=master.getBaseAsString(origTaxon, masterSite);
+                    }
+                    String hapOneBase= haps[0].getBaseAsString(taxon, hapSite);
+                    String hapTwoBase= haps[1].getBaseAsString(taxon, hapSite);
+                    currMnaOne[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE; currMnaTwo[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE;
+                    if (AlignmentUtils.isEqual(master.getBase(origTaxon, masterSite),Alignment.UNKNOWN_DIPLOID_ALLELE)) continue;//leave unk if unk in master
+                    else if ((master.isHeterozygous(origTaxon, masterSite))||(AlignmentUtils.isEqual(haps[0].getBase(taxon, hapSite), haps[1].getBase(taxon, hapSite)))) {//if master het or imputd to a homozygote put in phased values
+                        currMnaOne[masterSite]= haps[0].getBase(taxon, hapSite); currMnaTwo[masterSite]= haps[1].getBase(taxon, hapSite);}
+                    else if (AlignmentUtils.isHeterozygous(AlignmentUtils.getDiploidValue(haps[0].getBaseArray(taxon, hapSite)[0], haps[1].getBaseArray(taxon, hapSite)[0]))) {//if master not het, but imputed to het, remove the imputed allele
+                        if (AlignmentUtils.isEqualOrUnknown(haps[0].getBase(taxon, hapSite), master.getBase(origTaxon, masterSite))) currMnaOne[masterSite]= haps[0].getBase(taxon, hapSite);
+                        else if (AlignmentUtils.isEqualOrUnknown(haps[1].getBase(taxon, hapSite), master.getBase(origTaxon, masterSite))) currMnaTwo[masterSite]= haps[1].getBase(taxon, hapSite);
+                        else {currMnaOne[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE; currMnaTwo[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE;}
+                    }
+                }
+            }
+            mna.setAllBases(mnaTaxonOne, currMnaOne);
+            mna.setAllBases(mnaTaxonTwo, currMnaTwo);
+        }
+        mna.clean();
     }
     
     public static void getCovByTaxon(String file) {
@@ -300,7 +391,7 @@ public class Diagnostics {
         dir= "/Users/kls283/Desktop/Imputation/beagle/";
         String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndelsBeagleBase.vcf.gz";
         String unimpVCF= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Spanchr8NoIndels.vcf.gz";
-        recoverBeaglePhase(inVCFFile, unimpVCF,6, null);
+//        recoverBeaglePhase(inVCFFile, unimpVCF,6, null);
 //        dir= "/home/kls283/Documents/Imputation/beagle/";
 //        for (int chr = 1; chr < 11; chr++) {
 //            String inVCFFile= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBase.vcf.gz";
@@ -308,9 +399,18 @@ public class Diagnostics {
 //        recoverBeaglePhase(inVCFFile, unimpVCF,6, null);
 //        }
         
+        //add phased vcf of imputed haplotype files to master file that includes these taxa, but may contain more sites/loci
+        dir= "/Users/kls283/Desktop/Imputation/";
+        for (int chr = 1; chr < 11; chr++) {
+            String hapFileOne= dir+"beagle/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBaseImpHapOne.hmp.txt.gz";
+            String hapFileTwo= dir+"beagle/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDchr"+Integer.toString(chr)+"NoIndelsBeagleBaseImpHapTwo.hmp.txt.gz";
+            String master= dir+"AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7.hmp.h5";
+            unimputeBeagleAddToMaster(hapFileOne, hapFileTwo, null, 6, master);
+        }
+        
         //merge files in a directory
         dir= "home/kls283/Documents/Imputation/beagle/new/";
         String out= "AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDPhasedHapsOne.hmp.h5";
-        mergeTaxa(dir, out);
+//        mergeTaxa(dir, out);
         }
 }
