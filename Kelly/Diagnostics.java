@@ -277,25 +277,26 @@ public class Diagnostics {
         
         //go through and check to see if taxa in the haps files already exist in the master. if not, add haps to mna and fill with diploid genotypes from the master
         IdGroup mnaID= mna.getIdGroup();
-        int[] origMNATaxonIndices= new int[haps[0].getSequenceCount()];
+        ArrayList<String> origToRemove= new ArrayList<>();
+        HashMap<Integer,Integer> whichMaster= new HashMap<>(haps[0].getSequenceCount());
         byte[] empty= new byte[mna.getSiteCount()];
         for (int b = 0; b < empty.length; b++) {empty[b]= Alignment.UNKNOWN_DIPLOID_ALLELE;}
         for (int taxon = 0; taxon < haps[0].getSequenceCount(); taxon++) {
             int hapInMNA= mnaID.whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
             String origName;
-            if (hapInMNA<0) {//if haplotypes are not already present in mna
-                String name[]= haps[0].getIdGroup().getIdentifier(taxon).getFullName().split(":");
-                origName= name[0].substring(0, (name[0].indexOf((name[0].contains("One"))?"One":"Two")));
-                for (int n = 1; n < name.length; n++) { origName+= ":"+name[n];}
-                origMNATaxonIndices[taxon]= mnaID.whichIdNumber(origName);
-                //add hap names filled with the bases of the original unphased
-                mna.addTaxon(haps[0].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMNATaxonIndices[taxon]), null);
-                mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(origMNATaxonIndices[taxon]), null);
+            String name[]= haps[0].getIdGroup().getIdentifier(taxon).getFullName().split(":");
+            origName= name[0].substring(0, (name[0].indexOf((name[0].contains("One"))?"One":"Two")));
+            whichMaster.put(taxon, master.getIdGroup().whichIdNumber(origName));
+            for (int n = 1; n < name.length; n++) { origName+= ":"+name[n];}
+            if (hapInMNA<0) {//if haplotypes are not already present in mna add hap names filled with the bases of the original unphased and set original to remove
+                if (mnaID.whichIdNumber(origName)>1) origToRemove.add(origName);
+                mna.addTaxon(haps[0].getIdGroup().getIdentifier(taxon), master.getBaseRow(master.getIdGroup().whichIdNumber(origName)), null);
+                mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(master.getIdGroup().whichIdNumber(origName)), null);
             }
         }
         mna.clean();
-        for (int i:origMNATaxonIndices) {//remove originals
-            if (i>-1) mna.removeTaxon(mna.getIdGroup().whichIdNumber(master.getIdGroup().getIdentifier(i)));
+        for (String name:origToRemove) {//remove originals
+            mna.removeTaxon(mna.getIdGroup().whichIdNumber(name));
         }
         mna.clean();
         int startMasterSite= mna.getSiteOfPhysicalPosition(haps[0].getPositionInLocus(0),haps[0].getLocus(0));
@@ -304,7 +305,7 @@ public class Diagnostics {
         for (int taxon= 0; taxon < haps[0].getSequenceCount(); taxon++) {
             int mnaTaxonOne= mna.getIdGroup().whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
             int mnaTaxonTwo= mna.getIdGroup().whichIdNumber(haps[1].getIdGroup().getIdentifier(taxon));
-            int origTaxon= origMNATaxonIndices[taxon];
+            int origTaxon= whichMaster.get(taxon);
             byte[] currMnaOne= mna.getBaseRow(mnaTaxonOne);
             byte[] currMnaTwo= mna.getBaseRow(mnaTaxonTwo);
             for (int masterSite = startMasterSite; masterSite < endMasterSite+1; masterSite++) {
