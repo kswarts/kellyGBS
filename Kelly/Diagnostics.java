@@ -202,6 +202,7 @@ public class Diagnostics {
             Alignment a=  (readFile.contains(".vcf"))?ImportUtils.readFromVCF(readFile, null, 6):ImportUtils.readGuessFormat(readFile, true);
             aligns.add(a);
             if (first) {ExportUtils.writeToMutableHDF5(a, outFileName); first= false;}
+            
             else {
                 if (mna==null) mna= MutableNucleotideAlignmentHDF5.getInstance(outFileName);
                 else {
@@ -294,14 +295,18 @@ public class Diagnostics {
                 mna.addTaxon(haps[1].getIdGroup().getIdentifier(taxon), master.getBaseRow(master.getIdGroup().whichIdNumber(origName)), null);
             }
         }
+        System.out.println("Added "+(mna.getSequenceCount()-master.getSequenceCount())+" taxa to "+outFileName);
         mna.clean();
         for (String name:origToRemove) {//remove originals
             mna.removeTaxon(mna.getIdGroup().whichIdNumber(name));
         }
+        System.out.println("Removed "+origToRemove.size()+" taxa from "+outFileName);
         mna.clean();
         int startMasterSite= mna.getSiteOfPhysicalPosition(haps[0].getPositionInLocus(0),haps[0].getLocus(0));
+        if (startMasterSite<0) startMasterSite= -startMasterSite;
         int endMasterSite= mna.getSiteOfPhysicalPosition(haps[0].getPositionInLocus(haps[0].getSiteCount()-1), haps[0].getLocus(haps[0].getSiteCount()-1));
-            
+        if (endMasterSite<0) endMasterSite= -endMasterSite;
+        
         for (int taxon= 0; taxon < haps[0].getSequenceCount(); taxon++) {
             int mnaTaxonOne= mna.getIdGroup().whichIdNumber(haps[0].getIdGroup().getIdentifier(taxon));
             int mnaTaxonTwo= mna.getIdGroup().whichIdNumber(haps[1].getIdGroup().getIdentifier(taxon));
@@ -312,12 +317,6 @@ public class Diagnostics {
                 int hapSite= haps[0].getSiteOfPhysicalPosition(master.getPositionInLocus(masterSite), master.getLocus(masterSite));
                 if (hapSite<0) continue;
                 else {
-                    String masterBase=master.getBaseAsString(origTaxon, masterSite);
-                    if (master.isHeterozygous(origTaxon, masterSite)) {
-                        masterBase=master.getBaseAsString(origTaxon, masterSite);
-                    }
-                    String hapOneBase= haps[0].getBaseAsString(taxon, hapSite);
-                    String hapTwoBase= haps[1].getBaseAsString(taxon, hapSite);
                     currMnaOne[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE; currMnaTwo[masterSite]= Alignment.UNKNOWN_DIPLOID_ALLELE;
                     if (AlignmentUtils.isEqual(master.getBase(origTaxon, masterSite),Alignment.UNKNOWN_DIPLOID_ALLELE)) continue;//leave unk if unk in master
                     else if ((master.isHeterozygous(origTaxon, masterSite))||(AlignmentUtils.isEqual(haps[0].getBase(taxon, hapSite), haps[1].getBase(taxon, hapSite)))) {//if master het or imputd to a homozygote put in phased values
