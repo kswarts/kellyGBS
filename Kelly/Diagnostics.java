@@ -408,6 +408,12 @@ public class Diagnostics {
             unimputeBeagleAddToMaster(hapFileOne, hapFileTwo, null, 6, masterFileName, master);
         }
         
+        //subset the modFile by the sites in the directory files
+        dir= "/home/kls283/Documents/Imputation/beagle/new/";
+        String fileType= ".hmp.txt.gz";
+        String modFile= "AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7withBeaglePhasedHapsFor12S_RIMMA_Span_SEED.hmp.h5";
+        matchSites(dir,fileType,modFile);
+        
         //merge files in a directory
         dir= "home/kls283/Documents/Imputation/beagle/new/";
         String out= "AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetBy12S_RIMMA_Span_SEEDPhasedHapsOne.hmp.h5";
