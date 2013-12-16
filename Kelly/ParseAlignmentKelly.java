@@ -25,7 +25,7 @@ import org.biojava3.core.util.Equals;
  * @author kelly
  */
 public class ParseAlignmentKelly {
-    public static String dir;
+        public static String dir;
     public static byte diploidN= (byte) 0xff;
     
     //takes taxa from inFile and sites from refFile. Designed to compare 55k
@@ -100,9 +100,14 @@ public class ParseAlignmentKelly {
    //this subsets an hdf5 based on taxa names taken from a text file (one taxon per line). Can be either permissive (where only the first
    //part of the name is compared) or strict, where only identical sample preps are selected. Print to hmp (h5==false) or hdf5 (h5==true)
    //if remove taxa equals true, the taxa listed in the text file will be removed and the rest returned, otherwise selected
-   public static void subsetHDF5FromTxt(String dir, String inFileRoot, String taxaNamesRoot, boolean permissive, boolean removeTaxa, boolean keepDepth) {
+   public static void subsetHDF5FromTxt(String dir, String inFileRoot, String taxaNamesRoot, boolean permissive, boolean removeTaxa, boolean keepDepth, boolean toVCF) {
        String[] nameArray= KellyUtils.readInTxtNames(dir+taxaNamesRoot+".txt", permissive);
-       MutableNucleotideAlignmentHDF5 mnah5= (MutableNucleotideAlignmentHDF5)ImportUtils.readGuessFormat(dir+inFileRoot+".hmp.h5", false);
+       Alignment in= ImportUtils.readGuessFormat(dir+inFileRoot,true);
+       if (!inFileRoot.endsWith(".h5")) {
+           ExportUtils.writeToMutableHDF5(in, dir+inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+".hmp.h5");
+           inFileRoot= inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+".hmp.h5";
+       }
+       MutableNucleotideAlignmentHDF5 mnah5= MutableNucleotideAlignmentHDF5.getInstance(dir+inFileRoot);
        mnah5.optimizeForTaxa(null);
        IdGroup h5IDs= mnah5.getIdGroup();
        if (permissive==true) System.out.println("permissive mode on (matches only the first part of the name before the first colon - will select duplicate samples of taxa)");
@@ -119,17 +124,61 @@ public class ParseAlignmentKelly {
        if (removeTaxa==false) {
            subset= FilterAlignment.getInstance(mnah5, subIDs);
            System.out.println("subsetting "+subset.getSequenceCount()+" taxa from "+h5IDs.getIdCount()+" taxa based on "+nameArray.length+" unique names");
-           if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-           else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           if (permissive==true) {ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           if (toVCF) {System.out.println("writing to vcf"); ExportUtils.writeToVCF(subset, dir+inFileRoot+"PermissiveSubsetBy"+taxaNamesRoot+".vcf.gz", '\t');}}
+           else {ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           if (toVCF) {System.out.println("writing to vcf"); ExportUtils.writeToVCF(subset, dir+inFileRoot+"StrictSubsetBy"+taxaNamesRoot+".vcf.gz", '\t');}}
            System.out.println("writing to hdf5");
        }
        else {
            subset= FilterAlignment.getInstanceRemoveIDs(mnah5, subIDs);
            System.out.println("removing "+subIDs.getIdCount()+" taxa from "+mnah5.getSequenceCount()+" taxa based on "+nameArray.length+" unique names\n"+subset.getSequenceCount()+" taxa remain");
-           if (permissive==true) ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"PermissiveExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
-           else ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot+"StrictExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           if (permissive==true) {ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+"PermissiveExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
+           if (toVCF) {System.out.println("writing to vcf"); ExportUtils.writeToVCF(subset, dir+inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+"PermissiveExclusionBy"+taxaNamesRoot+".vcf.gz", '\t');}}
+           else {ExportUtils.writeToMutableHDF5(subset, dir+inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+"StrictExclusionBy"+taxaNamesRoot+".hmp.h5", null, keepDepth);
            System.out.println("writing to hdf5");
+           if (toVCF) {System.out.println("writing to vcf"); ExportUtils.writeToVCF(subset, dir+inFileRoot.substring(0, inFileRoot.indexOf(".hmp"))+"PermissiveExclusionBy"+taxaNamesRoot+".vcf.gz", '\t');}}
+           
        }
+   }
+   
+   //will join alignments, keeping only those sites that are present in both
+   public static void combineAlignments(String fileOne, String fileTwo) {
+       Alignment a= ImportUtils.readGuessFormat(fileOne, true);
+       Alignment b= ImportUtils.readGuessFormat(fileTwo, true);
+       String outFile= fileOne.substring(0,fileOne.indexOf(".hmp"))+"_Join_"+fileTwo.substring(fileTwo.lastIndexOf('/'));
+       int[] aPos= a.getPhysicalPositions();
+       int[] bPos= b.getPhysicalPositions();
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(a, a.getSequenceCount()+b.getSequenceCount(), aPos.length);
+       boolean remove[]= new boolean[aPos.length];
+       int newSize= 0;
+       for (int site = 0; site < aPos.length; site++) {
+           if (Arrays.binarySearch(bPos, aPos[site])>-1&&
+                   (a.getMajorAllele(site)==b.getMajorAllele(site)||a.getMajorAllele(site)==b.getMinorAllele(site))&&
+                   (b.getMajorAllele(site)==a.getMajorAllele(site)||b.getMajorAllele(site)==a.getMinorAllele(site))) {newSize++; continue;}
+           else mna.clearSiteForRemoval(site);
+       }
+       IdGroup aTaxa= a.getIdGroup();
+       for (int taxon = 0; taxon < b.getSequenceCount(); taxon++) {
+           if (aTaxa.whichIdNumber(b.getIdGroup().getIdentifier(taxon))<0) continue;
+           mna.addTaxon(b.getIdGroup().getIdentifier(taxon));
+       }
+       mna.clean();
+       
+       int[] newPos= mna.getPhysicalPositions();
+       for (int taxon = 0; taxon < b.getSequenceCount(); taxon++) {
+           int whichTaxon= mna.getIdGroup().whichIdNumber(b.getIdGroup().getIdentifier(taxon));
+           if (whichTaxon<0) continue;
+           byte[] newAlign= new byte[mna.getSiteCount()];
+           for (int site = 0; site < b.getSiteCount(); site++) {
+               int newSite= Arrays.binarySearch(newPos, bPos[site]);
+               if (newSite < 0) continue;
+               newAlign[newSite]= b.getBase(taxon, site);
+           }
+           mna.setBaseRange(whichTaxon, 0, newAlign);
+       }
+       mna.clean();
+       ExportUtils.writeToHDF5(a, outFile);
    }
    
    public static void subsetAlignmentByFocusSites(String inFile, String outAdd, int[][] positions, int windowSize, boolean h5) {//the rows of positions should be physical position, the columns loci
@@ -255,15 +304,52 @@ public class ParseAlignmentKelly {
        }
    }
    
-   public static void subsetChrKeepAllSites(String inFile, String chr) {
+   public static void extractPhaseFromImputedBeagle4 (String beagleFileName, String unimputedFileName) {
+       //pull file statistics from beagle read in as vcf and set up new mna
+       Alignment beagle= ImportUtils.readFromVCF(beagleFileName, null);
+       Alignment unimputed= ImportUtils.readGuessFormat(unimputedFileName, true);
+       if (Arrays.equals(beagle.getSNPIDs(),unimputed.getSNPIDs())==false) System.out.println("WARNING: Beagle and unimputed file to do not contain identical sites. Make sure to use an identical unimputed and imputed file");
+       if (IdGroupUtils.isEqualIgnoringOrder(beagle.getIdGroup(),unimputed.getIdGroup())) System.out.println("WARNING: Beagle and unimputed file to do not contain the same taxa. Make sure to use an identical unimputed and imputed file");;
+       MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(beagle, beagle.getSequenceCount()*2, beagle.getSiteCount());
+       for (int taxon = 0; taxon < beagle.getSequenceCount(); taxon++) {//set new taxon names for phased haps
+           String currID= beagle.getIdGroup().getIdentifier(taxon).getFullName();
+           String IDOne= currID.substring(0, currID.indexOf(':'))+"Ref"+currID.substring(currID.indexOf(':'));
+           String IDTwo= currID.substring(0, currID.indexOf(':'))+"Alt"+currID.substring(currID.indexOf(':'));
+           mna.setTaxonName(taxon, new Identifier(IDOne));
+           mna.setTaxonName(beagle.getSequenceCount()+taxon, new Identifier(IDTwo));
+       }
+       if (IdGroupUtils.isEqualIgnoringOrder(beagle.getIdGroup(), unimputed.getIdGroup())==false) System.out.println("Taxa names not equal. Ignore output, it's garbage");
+       //go through and for each genotype that is not unknown in the unimputed, sort imputed result into ref/alt
+       for (int site = 0; site < beagle.getSiteCount(); site++) {
+           int unimpSite= unimputed.getSiteOfPhysicalPosition(beagle.getPositionInLocus(site), beagle.getLocus(site));
+           for (int taxon = 0; taxon < beagle.getSequenceCount(); taxon++) {
+               mna.setBase(taxon, site, Alignment.UNKNOWN_DIPLOID_ALLELE);//wipe the current allele
+               if (unimputed.getBase(taxon, unimpSite)==Alignment.UNKNOWN_DIPLOID_ALLELE) continue;
+               if (AlignmentUtils.isPartiallyEqual(beagle.getBase(taxon, site), unimputed.getBase(taxon, unimpSite))==false) {
+                   System.out.println("Do not partialy agree at position "+beagle.getPositionInLocus(site)); continue;
+               }
+               if (AlignmentUtils.isHeterozygous(beagle.getBase(taxon, site))==true) {
+                   mna.setBase(taxon, site, AlignmentUtils.getDiploidValue(beagle.getBaseArray(taxon, site)[0], Alignment.UNKNOWN_ALLELE));
+                   mna.setBase(taxon+beagle.getSequenceCount(), site, AlignmentUtils.getDiploidValue(beagle.getBaseArray(taxon, site)[1], Alignment.UNKNOWN_ALLELE));
+               }
+               else {
+                   mna.setBase(taxon, site, AlignmentUtils.getDiploidValue(beagle.getBaseArray(taxon, site)[0], Alignment.UNKNOWN_ALLELE));
+                   mna.setBase(taxon+beagle.getSequenceCount(), site, AlignmentUtils.getDiploidValue(beagle.getBaseArray(taxon, site)[0], Alignment.UNKNOWN_ALLELE));
+               }
+           }
+       }
+       mna.clean();
+       ExportUtils.writeToHDF5(mna, unimputedFileName.substring(0, unimputedFileName.length()-7)+"BeagleHaps.hmp.h5");
+   }
+   
+   public static void subsetChrKeepAllSites(String inFile, String chr, boolean vcf) {
        String outFile= inFile.substring(0, inFile.indexOf(".hmp"))+"chr"+chr+".hmp.h5";
        Alignment a= ImportUtils.readGuessFormat(inFile, true);
        int[] startEnd = a.getStartAndEndOfLocus(a.getLocus(chr));
-       int[] keep= new int[startEnd[1]-startEnd[0]];
-       for (int i = 0; i < keep.length; i++) {keep[i]= startEnd[0]+i;}
-       FilterAlignment fa= FilterAlignment.getInstance(a, startEnd[0], startEnd[1]);
+       FilterAlignment fa= FilterAlignment.getInstance(a, startEnd[0], startEnd[1]-1);
        MutableNucleotideAlignment mna= MutableNucleotideAlignment.getInstance(fa);
-       ExportUtils.writeToMutableHDF5(mna, outFile);
+       ExportUtils.writeToMutableHDF5(mna, outFile+".hmp.h5");
+       if (vcf) ExportUtils.writeToVCF(mna, outFile+".vcf.gz", '\t');
    }
    
    public static void main (String args[]) {
@@ -273,18 +359,18 @@ public class ParseAlignmentKelly {
 //       String refFileName= dir+"";
 //       checkSitesForIdentityByPosition(inFileName,refFileName,.1,.1);
        
-//       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
-       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
-//       //String textToSubsetRoot= "Ames(no EP or GEM)";
-//       String textToSubsetRoot= "12S_RIMMA_Span_SEED";
-       String textToSubsetRoot= "Ames380";
-       String inFileNameRoot= "AllZeaGBSv27";
-//       //imputation subset for carotenoids (Ames inbreds and also 12S, RIMMA, spanish landraces)
-////       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false, true);
-//       //subset out landraces to replace with those inbred by HMM
-//       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,true,true, false);
-       //subset 380 inbreds from Ames (randomized in excel)
-       subsetHDF5FromTxt(dir, inFileNameRoot,textToSubsetRoot,false,false,false);
+////       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
+//       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
+////       //String textToSubsetRoot= "Ames(no EP or GEM)";
+////       String textToSubsetRoot= "12S_RIMMA_Span_SEED";
+//       String textToSubsetRoot= "Ames380";
+//       String inFileNameRoot= "AllZeaGBSv27";
+////       //imputation subset for carotenoids (Ames inbreds and also 12S, RIMMA, spanish landraces)
+//////       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false, true);
+////       //subset out landraces to replace with those inbred by HMM
+////       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,true,true, false);
+//       //subset 380 inbreds from Ames (randomized in excel)
+//       subsetHDF5FromTxt(inFileNameRoot,textToSubsetRoot,false,false,false);
        
 //       //filter alignment subsetting doesn't work for h5 mutable alignments
 //       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
@@ -311,14 +397,25 @@ public class ParseAlignmentKelly {
 //       String matchFile= dir+"carotenoid/AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11CarotenoidsubString2000_cX.hmp.txt.gz";
 //       findSubsetDonor(donorRoot, matchFile);
        
-//       dir= "/Users/kellyadm/Desktop/Imputation2.7/";
+//       dir= "/Users/kls283/Desktop/Imputation/";
 ////       dir= "/home/local/MAIZE/kls283/GBS/Imputation2.7/";
 ////       String[] inFile= new String[]{dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._masked_Depth5_Denom11.hmp.h5",
 ////           dir+"AllZeaGBSv27StrictSubsetBy12S_RIMMA_Span._maskKey_Depth5_Denom11.hmp.h5"};
-//       String[] inFile= new String[]{dir+"AllZeaGBSv27StrictSubsetByAmes408._masked_Depth5_Denom11.hmp.h5",
-//           dir+"AllZeaGBSv27StrictSubsetByAmes408._maskKey_Depth5_Denom11.hmp.h5"};
-//       String chr= "1";
-//       for (String in:inFile) {subsetChrKeepAllSites(in, chr);}
+//       String subset= "12S_RIMMA_Span";
+//       subset= "282All";
+////       subset= "Ames380";
+//       String depth= "7";
+//       String denom= "7";
+//       String[] inFile= new String[]{dir+"AllZeaGBS_v2.7wDepth_masked_Depth"+depth+"_Denom"+denom+"StrictSubsetBy"+subset+".hmp.h5"};//,
+//           //dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth"+depth+"_Denom"+denom+"StrictSubsetBy"+subset+".hmp.h5"};
+//       String chr= "8";
+//       for (String in:inFile) {subsetChrKeepAllSites(in, chr, true);}
+       
+       //subsets for runtime test
+       dir= "/kls283/Documents/Imputation";
+       String inFile= "AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7StrictSubsetByLessThan.01Het.rand5kNoIndelsMinTCov0.1MinSCov0.1Poly.hmp.txt.gz";
+       String taxa= "LessThan.01Het.rand3k"; 
+       subsetHDF5FromTxt(dir,inFile,taxa,false,false,false,true);
    }
     
 }
