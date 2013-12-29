@@ -372,15 +372,16 @@ public class ParseAlignmentKelly {
        for(Alignment sub:aligns) {
            int[] currModRange= new int[]{mod.getSiteOfPhysicalPosition(sub.getPositionInLocus(0), sub.getLocus(0)),
                mod.getSiteOfPhysicalPosition(sub.getPositionInLocus(sub.getSiteCount()-1), sub.getLocus(sub.getSiteCount()-1))};//the start and end sites in the mod file for the curr alignment. the end site is inclusive
+           TreeMap<Integer,Integer> whichSubSite= new TreeMap<>();
+           int[] subSites= sub.getPhysicalPositions();
+           for (int site = currModRange[0]; site < currModRange[1]+1; site++) {whichSubSite.put(site,Arrays.binarySearch(subSites, mod.getPositionInLocus(site)));}
            for (int taxon = 0; taxon < sub.getSequenceCount(); taxon++) {
                int modTaxon= Arrays.binarySearch(modTaxa, sub.getIdGroup().getIdentifier(taxon));
                if (modTaxon<0) {System.out.println("Taxon "+sub.getTaxaName(taxon)+" cannot be found in modFile");continue;}
                byte[] curr= mod.getBaseRow(modTaxon);
-               int[] subSites= sub.getPhysicalPositions();
                for (int site = currModRange[0]; site < currModRange[1]+1; site++) {//site here is the site for the modFile
-                   int currSubSite= Arrays.binarySearch(subSites, mod.getPositionInLocus(site));
-                   if (currSubSite<0) continue;
-                   curr[site]= sub.getBase(taxon, currSubSite);
+                   if (whichSubSite.get(site)<0) continue;
+                   curr[site]= sub.getBase(taxon, whichSubSite.get(site));
                }
                mod.setAllBases(modTaxon, curr);
            }
