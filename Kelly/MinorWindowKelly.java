@@ -10,6 +10,8 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 
+import java.lang.Byte;
+import java.text.DecimalFormat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,12 +35,14 @@ import net.maizegenetics.pal.alignment.MutableNucleotideAlignment;
 import net.maizegenetics.pal.alignment.Alignment;
 import net.maizegenetics.pal.alignment.AlignmentUtils;
 import net.maizegenetics.pal.alignment.ExportUtils;
+import net.maizegenetics.pal.alignment.FilterAlignment;
 import net.maizegenetics.pal.alignment.ImportUtils;
 import net.maizegenetics.pal.alignment.MutableAlignment;
 import net.maizegenetics.pal.alignment.MutableNucleotideAlignmentHDF5;
 import net.maizegenetics.pal.alignment.NucleotideAlignmentConstants;
 import net.maizegenetics.pal.alignment.ProjectionAlignment;
 import net.maizegenetics.pal.distance.IBSDistanceMatrix;
+import net.maizegenetics.pal.ids.IdGroup;
 import net.maizegenetics.pal.ids.Identifier;
 import net.maizegenetics.pal.ids.SimpleIdGroup;
 import net.maizegenetics.pal.popgen.DonorHypoth;
@@ -102,7 +106,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     private boolean hybridNN=true;
     private int minMinorCnt=20;
     private int minMajorRatioToMinorCnt=10;  //refinement of minMinorCnt to account for regions with all major
-    private int maxDonorHypotheses=10;  //number of hypotheses of record from an inbred or hybrid search of a focus block
+    private int maxDonorHypotheses=20;  //number of hypotheses of record from an inbred or hybrid search of a focus block
     private boolean isOutputProjection=false;
     private boolean isChromosomeMode=false;  //deprecated approach to run one chromosome at a time to separate files
     
@@ -116,7 +120,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     //major and minor alleles can be differ between the donor and unimp alignment 
     private boolean isSwapMajorMinor=true;  //if swapped try to fix it
     
-    private boolean resolveHetIfUndercalled=true;
+    private boolean resolveHetIfUndercalled=false;
     //variables for tracking accuracy 
     private int totalRight=0, totalWrong=0, totalHets=0; //global variables tracking errors on the fly
     private int[] siteErrors, siteCorrectCnt, taxonErrors, taxonCorrectCnt;  //error recorded by sites
@@ -185,8 +189,11 @@ public class MinorWindowKelly extends AbstractPlugin {
     boolean twoWayViterbi= true;
     boolean focusBlockViterbi= true;
     double maxErrorRateForFocusViterbi= .2;
-    boolean smashMode= false;
-    boolean generateMAFFile= false;
+    boolean smashMode= true;
+    boolean generateMAFFile= true;
+    boolean useTwoPQ= false;
+    
+    int toMissing= 0;
 
     public MinorWindowKelly() {
         super(null, false);
@@ -263,7 +270,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         s.append(String.format("%s %s MinMinor:%d ", donorFile, unImpTargetFile, minMinorCnt));
         System.out.println(s.toString());
         double errRate=(double)totalWrong/(double)(totalRight+totalWrong);
-        System.out.printf("TotalRight %d  TotalWrong %d TotalHets: %d ErrRateExcHet:%g %n",totalRight, totalWrong, totalHets, errRate);
+        System.out.printf("TotalRight %d  TotalWrong %d TotalHets: %d ImputedHetsToMissing: %d ErrRateExcHet:%g %n",totalRight, totalWrong, totalHets, toMissing, errRate);
 //        for (int i = 0; i < siteErrors.length; i++) {
 //            System.out.printf("%d %d %d %g %g %n",i,siteCallCnt[i],siteErrors[i], 
 //                    (double)siteErrors[i]/(double)siteCallCnt[i], unimpAlign.getMinorAlleleFrequency(i));
@@ -329,18 +336,18 @@ public class MinorWindowKelly extends AbstractPlugin {
                     donorIndices=new int[donorAlign[da].getSequenceCount()];
                     for (int i = 0; i < donorIndices.length; i++) {donorIndices[i]=i;}
                 }
-                DonorHypoth[][] regionHypth=new DonorHypoth[blocks][maxDonorHypotheses];
+                DonorHypoth[][] regionHypthInbred=new DonorHypoth[blocks][maxDonorHypotheses];
                 calcInbredDist(impTaxon,maskedTargetBits, donorAlign[da]);
                 for (int focusBlock = 0; focusBlock < blocks; focusBlock++) {
                     int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
                     if(resultRange==null) continue; //no data in the focus Block
                     //search for the best inbred donors for a segment
-                    regionHypth[focusBlock]=getBestInbredDonors(taxon, impTaxon, resultRange[0],resultRange[2], focusBlock, donorAlign[da], donorIndices);
+                    regionHypthInbred[focusBlock]=getBestInbredDonors(taxon, impTaxon, resultRange[0],resultRange[2], focusBlock, donorAlign[da], donorIndices);
                 }
                 impTaxon.setSegmentSolved(false);
                 //tries to solve the entire donorAlign region with 1 or 2 donor haplotypes
                 //consider also running it backwards
-                impTaxon=apply1or2Haplotypes(taxon, donorAlign[da], donorOffset, regionHypth,  impTaxon, maskedTargetBits, maxHybridErrorRate);
+                impTaxon=apply1or2Haplotypes(taxon, donorAlign[da], donorOffset, regionHypthInbred,  impTaxon, maskedTargetBits, maxHybridErrorRate);
                 if(impTaxon.isSegmentSolved()) {
 //                    System.out.printf("VertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
                     countFullLength++; continue;}
@@ -351,7 +358,7 @@ public class MinorWindowKelly extends AbstractPlugin {
 //                }
                  //resorts to solving block by block, first by inbred, and then by hybrid
                 if(inbredNN) {
-                    impTaxon=applyBlockNN(impTaxon, taxon, donorAlign[da], donorOffset, regionHypth, hybridNN, maskedTargetBits, 
+                    impTaxon=applyBlockNN(impTaxon, taxon, donorAlign[da], donorOffset, regionHypthInbred, hybridNN, maskedTargetBits, 
                             minMinorCnt, maxHybridErrorRate, donorIndices);
                 }   
             }          
@@ -414,12 +421,11 @@ public class MinorWindowKelly extends AbstractPlugin {
          try {
             File outputFile = new File(donorFileRoot.substring(0, donorFileRoot.indexOf(".gX"))+"MAF.txt");
             DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            DecimalFormat df = new DecimalFormat("0.########");
             for (Alignment don:donorAlign) {
                 for (int site = 0; site < don.getSiteCount(); site++) {
-                    outStream.writeBytes(don.getLocusName(site)+"\t"+don.getPositionInLocus(site)+"\t"+don.getMinorAlleleFrequency(site)+"\n");
+                    outStream.writeBytes(don.getLocusName(site)+"\t"+don.getPositionInLocus(site)+"\t"+df.format(don.getMinorAlleleFrequency(site))+"\n");
                 }
-            outStream.writeBytes("Taxon\tTotalSitesCompared\tNumHets\tCorrectHet\tPartialCorrectHet\tUnimputedHet\tWrongHet\tNumMinor\tCorrectMinor\tMinorToHet\tUnimputedMinor\t"
-                    + "WrongMinor\tNumMajor\tCorrectMajor\tMajorToHet\tUnimputedMajor\tWrongMajor\tOverallError\n");
             }
          }
          catch (Exception e) {
@@ -451,7 +457,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
         for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
         impT.setSegmentSolved(true);
-        return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT);
+        return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT, false, false);
     }
     
     private ImputedTaxon applyHaplotypesByFocusBlock(int taxon, Alignment donorAlign, int donorOffset, 
@@ -481,7 +487,7 @@ public class MinorWindowKelly extends AbstractPlugin {
             if(goodDH.isEmpty()) continue;
             DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
             for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
-            impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
+            impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT, false, false);//only sets donors for the focus block
         }
         if (impT.getBlocksSolved()-prevBlockSolved>blocks/8) impT.setSegmentSolved(true); ///I'M NOT SURE WHAT TO DO WITH THIS
         System.out.println(impT.getBlocksSolved()-prevBlockSolved+" blocks solved out of "+blocks);
@@ -580,7 +586,8 @@ public class MinorWindowKelly extends AbstractPlugin {
      * TODO:  This can be done much more robustly.
      * @param impT
      * @param targetTaxon
-     * @param regionHypth 
+     * @param regionHypth
+     * @param regionHypthHybrid
      */ 
     private ImputedTaxon applyBlockNN(ImputedTaxon impT, int targetTaxon, 
             Alignment donorAlign, int donorOffset, DonorHypoth[][] regionHypth, boolean hybridMode, BitSet[] maskedTargetBits, 
@@ -589,7 +596,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         int blocks=maskedTargetBits[0].getNumWords();
         for (int focusBlock = 0; focusBlock < blocks; focusBlock++) {
             if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maximumInbredError)) {
-                setAlignmentWithDonors(donorAlign, regionHypth[focusBlock],donorOffset, true,impT);
+                setAlignmentWithDonors(donorAlign, regionHypth[focusBlock],donorOffset, true,impT, false, false);
                 focusBlockdone++;
                 impT.incBlocksSolved();
                 inbred++;
@@ -621,7 +628,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                     }
               //      if((regionHypth[focusBlock][0]!=null)) System.out.printf("%d %d %g %n",targetTaxon, focusBlock, regionHypth[focusBlock][0].getErrorRate() );
                     if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maxHybridErrorRate)) {
-                        setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT);
+                        setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, useTwoPQ, smashMode);
                         focusBlockdone++;
                         impT.incBlocksSolved();
                         hybrid++;
@@ -630,7 +637,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                 } else {
                     DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
                     for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
-                    impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT);//only sets donors for the focus block
+                    impT= setAlignmentWithDonors(donorAlign,vdh, donorOffset,true,impT,false,false);//only sets donors for the focus block
                     focusBlockdone++;
                     impT.incBlocksSolved();
                     hybrid++;
@@ -649,7 +656,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                 }
           //      if((regionHypth[focusBlock][0]!=null)) System.out.printf("%d %d %g %n",targetTaxon, focusBlock, regionHypth[focusBlock][0].getErrorRate() );
                 if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maxHybridErrorRate)) {
-                    setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT);
+                    setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, false,false);
                     focusBlockdone++;
                     impT.incBlocksSolved();
                     hybrid++;
@@ -660,7 +667,7 @@ public class MinorWindowKelly extends AbstractPlugin {
         
         int leftNullCnt=0;
         for (DonorHypoth[] dh : regionHypth) {if(dh[0]==null) leftNullCnt++;}
-        //if(testing==1) 
+        if(testing==1) 
         System.out.printf("targetTaxon:%d hybridError:%g block:%d focusBlockdone:%d null:%d inbredDone:%d hybridDone:%d noData:%d %n",
                 targetTaxon, maxHybridErrorRate, blocks,focusBlockdone, leftNullCnt, inbred, hybrid, noData);
         return impT;
@@ -1011,7 +1018,7 @@ public class MinorWindowKelly extends AbstractPlugin {
     
     
     private ImputedTaxon setAlignmentWithDonors(Alignment donorAlign, DonorHypoth[] theDH, int donorOffset,
-            boolean setJustFocus, ImputedTaxon impT) {
+            boolean setJustFocus, ImputedTaxon impT, boolean twoPQ, boolean smashOn) {
         if(theDH[0].targetTaxon<0) return impT;
         boolean print=false;
         int startSite=(setJustFocus)?theDH[0].getFocusStartSite():theDH[0].startSite;
@@ -1024,7 +1031,17 @@ public class MinorWindowKelly extends AbstractPlugin {
         } else {
             prevDonors=impT.breakPoints.lastEntry().getValue();
         }
-        int[] currDonors=prevDonors;       
+        int[] currDonors=prevDonors;
+        
+        //this generates an alignment of the closest donors for the taxon block from the results of the hybrid donor search (to use for frequencies using 2PQ)
+//        TreeSet<Identifier> closeDonors;
+//        closeDonors= new TreeSet<>();
+//        for (DonorHypoth dh:theDH) {
+//            closeDonors.add(donorAlign.getIdGroup().getIdentifier(dh.donor1Taxon)); closeDonors.add(donorAlign.getIdGroup().getIdentifier(dh.donor2Taxon));
+//        }
+//        IdGroup ids= new SimpleIdGroup(closeDonors.toArray(new Identifier[closeDonors.size()]));
+//            Alignment bestDonors= FilterAlignment.getInstance(donorAlign, ids);
+////        
         for(int cs=startSite; cs<=endSite; cs++) {
             byte donorEst=Alignment.UNKNOWN_DIPLOID_ALLELE; 
             byte neighbor=0;
@@ -1050,6 +1067,7 @@ public class MinorWindowKelly extends AbstractPlugin {
                 }
             }
             byte knownBase=impT.getOrigGeno(cs+donorOffset);
+            String knownBaseString= NucleotideAlignmentConstants.getNucleotideIUPAC(knownBase);
             if(!Arrays.equals(prevDonors, currDonors)) {
                 impT.breakPoints.put(donorAlign.getPositionInLocus(cs), currDonors);
                 prevDonors=currDonors;
@@ -1058,12 +1076,76 @@ public class MinorWindowKelly extends AbstractPlugin {
             else {impT.chgHis[cs+donorOffset]=(byte)neighbor;}
             
             impT.impGeno[cs+donorOffset]= donorEst;  //predicted based on neighbor
-            if(knownBase==Alignment.UNKNOWN_DIPLOID_ALLELE) {impT.resolveGeno[cs+donorOffset]= donorEst;}
-            else {if(AlignmentUtils.isHeterozygous(donorEst)) {
-                if(resolveHetIfUndercalled&&AlignmentUtils.isPartiallyEqual(knownBase,donorEst)) 
-                {//System.out.println(theDH[0].targetTaxon+":"+knownBase+":"+donorEst);
+            String donorEstString= NucleotideAlignmentConstants.getNucleotideIUPAC(donorEst);
+            if(knownBase==Alignment.UNKNOWN_DIPLOID_ALLELE) {
+                if (AlignmentUtils.isHeterozygous(donorEst)) {
+//                    if(twoPQ&&smashOn) {//set to het or minor
+//                        double rand= Math.random(); double f= 0.3;
+//                        double minFreq= bestDonors.getMinorAlleleFrequency(cs); double majFreq= bestDonors.getMajorAlleleFrequency(cs);
+//                        if (AlignmentUtils.isHeterozygous(AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMinorAllele(cs), bestDonors.getMinorAllele(cs+donorOffset)))) {minFreq= majFreq; majFreq= bestDonors.getMinorAlleleFrequency(cs);}
+//                        double curr2pq= 2*majFreq*minFreq*(1-f); double currq2= (minFreq*minFreq*(1-f))+(minFreq*f);
+//                        if (minFreq<= .1) {//maj
+//                            impT.resolveGeno[cs+donorOffset]= AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMajorAllele(cs+donorOffset), Alignment.UNKNOWN_ALLELE);//maj
+//                            System.out.println("TwoPQMaj_"+minFreq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else if (rand<(curr2pq)) {
+//                            impT.resolveGeno[cs+donorOffset]= donorEst;//het
+//                            System.out.println("TwoPQHet_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else if (rand<(curr2pq+currq2)){//min
+//                            impT.resolveGeno[cs+donorOffset]= AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMinorAllele(cs+donorOffset), Alignment.UNKNOWN_ALLELE);
+//                            System.out.println("TwoPQMinor_"+currq2+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else {
+//                            impT.resolveGeno[cs+donorOffset]= knownBase;
+//                            System.out.println("TwoPQMissing_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                    }
+//                    if(twoPQ&&smashOn) {//set to het or missing
+//                        double rand= Math.random(); double f= 0;
+//                        double minFreq= bestDonors.getMinorAlleleFrequency(cs); double majFreq= bestDonors.getMajorAlleleFrequency(cs);
+//                        if (AlignmentUtils.isHeterozygous(AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMinorAllele(cs), unimpAlign.getMinorAllele(cs+donorOffset)))) {minFreq= majFreq; majFreq= bestDonors.getMinorAlleleFrequency(cs);}
+//                        double curr2pq= 2*majFreq*minFreq*(1-f); double currq2= (minFreq*minFreq*(1-f))+(minFreq*f);
+//                        if (rand>(1-curr2pq)) {
+//                            impT.resolveGeno[cs+donorOffset]= donorEst;//het
+//                            System.out.println("TwoPQHet_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else {
+//                            impT.resolveGeno[cs+donorOffset]= knownBase;//missing
+//                            System.out.println("TwoPQMinor_"+currq2+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                    }
+                    if(twoPQ&&smashOn) {//set to maj or min or het based on frequency solely
+//                        double minFreq= bestDonors.getMinorAlleleFrequency(cs); double majFreq= bestDonors.getMajorAlleleFrequency(cs);
+//                        double f= .2; double curr2pq= 2*majFreq*minFreq; double currq2= (minFreq*minFreq*(1-f))+(minFreq*f);
+//                        if (currq2>curr2pq&&currq2>(1-(currq2+curr2pq))) {
+//                            impT.resolveGeno[cs+donorOffset]= AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMinorAllele(cs+donorOffset), Alignment.UNKNOWN_ALLELE);
+//                            //System.out.println("TwoPQMinor_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else if (curr2pq>(1-(currq2+curr2pq))&&curr2pq>currq2){
+//                            impT.resolveGeno[cs+donorOffset]= AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMinorAllele(cs+donorOffset), bestDonors.getMajorAllele(cs+donorOffset));;
+//                            //System.out.println("TwoPQHet_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+//                        else {
+//                            impT.resolveGeno[cs+donorOffset]= AlignmentUtils.getUnphasedDiploidValue(bestDonors.getMajorAllele(cs+donorOffset), Alignment.UNKNOWN_ALLELE);;
+//                            //System.out.println("TwoPQMajor_"+curr2pq+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+//                        }
+                    }
+                    else if (smashOn) {//if hybrid on, but not 2pq, and wants to impute to het, just set to missing
+                        impT.resolveGeno[cs+donorOffset]= knownBase;
+                        //System.out.println("SetToMissing"+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+                        toMissing++;
+                    }
+                    else impT.resolveGeno[cs+donorOffset]= donorEst; //if not in hybrid, set to het
+                }
+                else {//if not imputed to a het
                     impT.resolveGeno[cs+donorOffset]= donorEst;}
-            }}
+            } else if (AlignmentUtils.isHeterozygous(donorEst)){
+                if(resolveHetIfUndercalled&&AlignmentUtils.isPartiallyEqual(knownBase,donorEst)&&smashOn==false){//if hybrid off, set homozygotes imputed to het to het
+                    System.out.println("ResolveHet:"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
+                    impT.resolveGeno[cs+donorOffset]= donorEst;
+                } 
+            }
         } //end of cs loop
         //enter a stop of the DH at the beginning of the next block
         int lastDApos=donorAlign.getPositionInLocus(endSite);

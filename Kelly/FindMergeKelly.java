@@ -66,7 +66,7 @@ public class FindMergeKelly extends AbstractPlugin {
     private int appoxSitesPerHaplotype=8192;
     private int minSitesPresentPerHap=500;
 
-    private double maximumMissing=0.4;
+    private double maximumMissing=0.7;
     private int maxHaplotypes=100;
     private int minSitesForSectionComp=50;
     private double maxHetFreq=0.01;
