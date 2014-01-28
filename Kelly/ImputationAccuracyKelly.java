@@ -443,6 +443,9 @@ public class ImputationAccuracyKelly {
         Alignment index = ImportUtils.readGuessFormat(keyFile, false);
         Alignment imputed = ImportUtils.readGuessFormat(imputedFileName, false);
         Alignment beagle= (imputedBeagleFile.contains(".vcf"))?ImportUtils.readFromVCF(imputedBeagleFile, null, 6):ImportUtils.readGuessFormat(imputedBeagleFile, false);
+        String outName= imputedBeagleFile.substring(0,imputedBeagleFile.indexOf("BeagleBase"))+"Consensus.hmp.h5";
+        ExportUtils.writeToMutableHDF5(imputed, outName);
+        MutableNucleotideAlignmentHDF5 con= MutableNucleotideAlignmentHDF5.getInstance(outName);
         double[][] all= new double[3][13]; //arrays held ("columns"): 0-maskedMinor, 1-maskedHet, 2-maskedMajor; each array ("rows" Beagle/Ours):
         //0-minor/minor, 1-minor/het, 2-minor/major, 3-minor/unimp, 4-het/minor, 5-het/het, 6-het/major, 7-het/unimputed, 8-major/minor, 9-major/het, 
         //10-major/major, 11-major/unimputed, 12-total for known type
@@ -453,7 +456,10 @@ public class ImputationAccuracyKelly {
         if (Arrays.equals(index.getPhysicalPositions(), imputed.getPhysicalPositions())==false) System.out.println("sites do not match between imputed alignment and key");
         int keySite= 0; int keyTaxon= 0; int beagleSite= 0; int beagleTaxon= 0;
         IdGroup keyTaxaNames= index.getIdGroup();
+        byte[] empty= new byte[imputed.getSiteCount()];
+        for (int i = 0; i < empty.length; i++) {empty[i]= Alignment.UNKNOWN_DIPLOID_ALLELE;}
         for (int taxon = 0; taxon < imputed.getSequenceCount(); taxon++) {
+            byte[] newSeq= empty;
             String currTaxon= imputed.getFullTaxaName(taxon);
             keyTaxon= keyTaxaNames.whichIdNumber(currTaxon);
             beagleTaxon= beagle.getIdGroup().whichIdNumber(currTaxon);
@@ -475,7 +481,7 @@ public class ImputationAccuracyKelly {
                 if (AlignmentUtils.isHeterozygous(known) == true) {//known is het
                     all[1][12]++;
                     if (AlignmentUtils.isHeterozygous(beagleBase)==true) {//beagle is het
-                        if (AlignmentUtils.isHeterozygous(imp)==true) all[1][5]++;
+                        if (AlignmentUtils.isHeterozygous(imp)==true) {all[1][5]++; newSeq[site]= beagleBase;}
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[1][7]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[1][6]++;
                         else all[1][4]++;
@@ -484,12 +490,12 @@ public class ImputationAccuracyKelly {
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[1][1]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[1][3]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[1][2]++;
-                        else all[1][0]++;
+                        else {all[1][0]++; newSeq[site]= beagleBase;}
                     }
                     else if (AlignmentUtils.isPartiallyEqual(beagleBase, maj)==true) {//beagle is major
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[1][9]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[1][11]++;
-                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[1][10]++;
+                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) {all[1][10]++; newSeq[site]= beagleBase;}
                         else all[1][8]++;
                     }
                     else {System.out.println("Exclude: More than two allele states at position "+imputed.getPositionInLocus(site)); all[1][12]--;}
@@ -497,7 +503,7 @@ public class ImputationAccuracyKelly {
                 else if (AlignmentUtils.isPartiallyEqual(known, maj) == true) {//known is major
                     all[2][12]++;
                     if (AlignmentUtils.isHeterozygous(beagleBase)==true) {//beagle is het
-                        if (AlignmentUtils.isHeterozygous(imp)==true) all[2][5]++;
+                        if (AlignmentUtils.isHeterozygous(imp)==true) {all[2][5]++; newSeq[site]= beagleBase;}
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[2][7]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[2][6]++;
                         else all[2][4]++;
@@ -506,12 +512,12 @@ public class ImputationAccuracyKelly {
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[2][1]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[2][3]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[2][2]++;
-                        else all[2][0]++;
+                        else {all[2][0]++; newSeq[site]= beagleBase;}
                     }
                     else if (AlignmentUtils.isPartiallyEqual(beagleBase, maj)==true) {//beagle is major
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[2][9]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[2][11]++;
-                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[2][10]++;
+                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) {all[2][10]++; newSeq[site]= beagleBase;}
                         else all[2][8]++;
                     }
                     else {System.out.println("Exclude: More than two allele states at position "+imputed.getPositionInLocus(site)); all[2][12]--;}
@@ -519,7 +525,7 @@ public class ImputationAccuracyKelly {
                 else if (AlignmentUtils.isPartiallyEqual(known, maj) == false) {//known is minor
                     all[0][12]++;
                     if (AlignmentUtils.isHeterozygous(beagleBase)==true) {//beagle is het
-                        if (AlignmentUtils.isHeterozygous(imp)==true) all[0][5]++;
+                        if (AlignmentUtils.isHeterozygous(imp)==true) {all[0][5]++; newSeq[site]= beagleBase;}
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[0][7]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[0][6]++;
                         else all[0][4]++;
@@ -528,18 +534,19 @@ public class ImputationAccuracyKelly {
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[0][1]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[0][3]++;
                         else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[0][2]++;
-                        else all[0][0]++;
+                        else {all[0][0]++; newSeq[site]= beagleBase;}
                     }
                     else if (AlignmentUtils.isPartiallyEqual(beagleBase, maj)==true) {//beagle is major
                         if (AlignmentUtils.isHeterozygous(imp)==true) all[0][9]++;
                         else if (AlignmentUtils.isEqual(imp, Alignment.UNKNOWN_DIPLOID_ALLELE)) all[0][11]++;
-                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) all[0][10]++;
+                        else if (AlignmentUtils.isPartiallyEqual(imp, maj)) {all[0][10]++; newSeq[site]= beagleBase;}
                         else all[0][8]++;
                     }
                     else {System.out.println("Exclude: More than two allele states at position "+imputed.getPositionInLocus(site)); all[0][12]--;}
                 }
                 else continue;
             }
+            con.setBaseRange(taxon, 0, newSeq);
         }
         System.out.println("\tKnownMinor\tKnownHet\tKnownMajor");
         for (int i = 0; i < all[0].length; i++) {System.out.println(classes[i]+"\t"+all[0][i]+"\t"+all[1][i]+"\t"+all[2][i]);}
@@ -552,6 +559,7 @@ public class ImputationAccuracyKelly {
         } catch (Exception e) {
             System.out.println(e);
         }
+        con.clean();
     }
     
     //this is the sample multiple r2. input should be coded if categorical according to desired linear contrast
