@@ -1,8 +1,8 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * MinorWindowViterbiImputationPlugin
  */
 package Kelly;
+
 
 import java.awt.Frame;
 import java.io.BufferedOutputStream;
@@ -108,20 +108,19 @@ public class FILLINImputationPlugin extends AbstractPlugin {
     private boolean isOutputProjection=false;
     private boolean isChromosomeMode=false;  //deprecated approach to run one chromosome at a time to separate files
     
-    private double maximumInbredError=0.02;  //inbreds are tested first, if too much error hybrids are tested.
-    private double maxHybridErrorRate=0.005;
+    private double maximumInbredError=0.01;  //inbreds are tested first, if too much error hybrids are tested.
+    private double maxHybridErrorRate=0.003;
     private int minTestSites=100;  //minimum number of compared sites to find a hit
     
     //kelly options
     private boolean twoWayViterbi= true;//if true, the viterbi runs in both directions (the longest path length wins, if inconsistencies)
-    private boolean focusBlockViterbi= true;//whether to attempt to run the viterbi algorithm for focus blocks
-    private double maxErrorRateForFocusViterbi= .2;//max error rate for discrepacy between two haplotypes for the focus block. it's default is higher because calculating for fewer sites
-    private boolean smashMode= true;//whether to go into two haplotype hybrid mode for the focus blocks
+    private double maxHybridErrFocusHomo= .001;//max error rate for discrepacy between two haplotypes for the focus block. it's default is higher because calculating for fewer sites
+    private double maxInbredErrFocusHomo= .005;
+    private double maxSmashErrFocusHomo= .01;
+    private double maxInbredErrFocusHet= .001;//Math.min(.001,maxInbredErrFocus/2);//set threshold for hets half of inbredErr, else .001
+    private double maxSmashErrFocusHet= .01;
+    private double hetThresh= 0.02;//threshold for whether a taxon is considered heterozygous
     private boolean generateMAFFile= false;//this is an option used for testing to generate a text file that records the MAF for each sites in the donor files
-    private boolean useTwoPQ= false;//deprecated mode to set heterozygotes imputed with smash mode to genotypes based on allele frequencies in the close donors
-    
-    private int toMissing= 0;
-    
     
     private Alignment unimpAlign;  //the unimputed alignment to be imputed, unphased
     private int testing=0;  //level of reporting to stdout
@@ -218,7 +217,10 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         ExecutorService pool = Executors.newFixedThreadPool(numThreads);
         for (int taxon = 0; taxon < unimpAlign.getSequenceCount(); taxon+=1) {
             int[] blockNN= new int[5];//global variable to track number of focus blocks solved in NN search for system out; index 0 is inbred, 1 is viterbi, 2 is smash, 3 is not solved, 4 is total for all modes
-            ImputeOneTaxon theTaxon=new ImputeOneTaxon(taxon, donorAlign, minSitesPresent, conflictMasks,imputeDonorFile, mna, blockNN);
+            System.out.println(((double)unimpAlign.getHeterozygousCountForTaxon(taxon)/(double)unimpAlign.getTotalNotMissingForTaxon(taxon)));
+            ImputeOneTaxon theTaxon= (((double)unimpAlign.getHeterozygousCountForTaxon(taxon)/(double)unimpAlign.getTotalNotMissingForTaxon(taxon))<hetThresh)?
+                new ImputeOneTaxon(taxon, donorAlign, minSitesPresent, conflictMasks,imputeDonorFile, mna, blockNN, maxInbredErrFocusHomo, maxHybridErrFocusHomo, maxSmashErrFocusHomo, true):
+                    new ImputeOneTaxon(taxon, donorAlign, minSitesPresent, conflictMasks,imputeDonorFile, mna, blockNN, maxInbredErrFocusHet, 0, maxSmashErrFocusHet, false);
     //        theTaxon.run();
             pool.execute(theTaxon);
         }
@@ -236,7 +238,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         s.append(String.format("%s %s MinMinor:%d ", donorFile, unImpTargetFile, minMinorCnt));
         System.out.println(s.toString());
         double errRate=(double)totalWrong/(double)(totalRight+totalWrong);
-        System.out.printf("TotalRight %d  TotalWrong %d TotalHets: %d ImputedHetsToMissing: %d ErrRateExcHet:%g %n",totalRight, totalWrong, totalHets, toMissing, errRate);
+        System.out.printf("TotalRight %d  TotalWrong %d TotalHets: %d ErrRateExcHet:%g %n",totalRight, totalWrong, totalHets, errRate);
 //        for (int i = 0; i < siteErrors.length; i++) {
 //            System.out.printf("%d %d %d %g %g %n",i,siteCallCnt[i],siteErrors[i], 
 //                    (double)siteErrors[i]/(double)siteCallCnt[i], unimpAlign.getMinorAlleleFrequency(i));
@@ -261,10 +263,13 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         boolean imputeDonorFile;
         MutableAlignment mna;
         int[] blockNN;//global variable to track number of focus blocks solved in NN search for system out; index 0 is inbred, 1 is viterbi, 2 is smash, 3 is not solved, 4 is total for all modes
-   
+        double focusInbredErr; //threshold for one haplotype imputation in focus block mode
+        double focusHybridErr; //threshold for Viterbi imputation in focus block mode
+        double focusSmashErr; //threshold for haplotype combination in focus block mode
+        boolean hetsMiss; //for inbred lines in two haplotype combination, set hets to missing because likely error. for heterozygous, impute estimated hets in focus block mode
         
         public ImputeOneTaxon(int taxon, Alignment[] donorAlign, int minSitesPresent, OpenBitSet[][] conflictMasks,
-            boolean imputeDonorFile, MutableAlignment mna, int[] blockNN) {
+            boolean imputeDonorFile, MutableAlignment mna, int[] blockNN, double focusInbErr, double focusHybridErr, double focusSmashErr, boolean hetsToMissing) {
             this.taxon=taxon;
             this.donorAlign=donorAlign;
             this.minSitesPresent=minSitesPresent;
@@ -272,6 +277,10 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             this.imputeDonorFile=imputeDonorFile;
             this.mna=mna;
             this.blockNN=blockNN;
+            this.focusInbredErr=focusInbErr;
+            this.focusHybridErr=focusHybridErr;
+            this.focusSmashErr=focusSmashErr;
+            this.hetsMiss=hetsToMissing;
         }
 
         
@@ -281,8 +290,9 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             StringBuilder sb=new StringBuilder();
             String name=unimpAlign.getIdGroup().getIdentifier(taxon).getFullName();
             ImputedTaxon impTaxon=new ImputedTaxon(taxon, unimpAlign.getBaseRow(taxon),isOutputProjection);
+            boolean het= (focusHybridErr==0)?true:false;
             int[] unkHets=countUnknownAndHets(impTaxon.getOrigGeno());
-            sb.append(String.format("Imputing %d:%s Mj:%d, Mn:%d Unk:%d Hets:%d... ", taxon,name,
+            sb.append(String.format("Imputing %d:%s Het:%b Mj:%d, Mn:%d Unk:%d Hets:%d... ", taxon,name,het,
                     unimpAlign.getAllelePresenceForAllSites(taxon, 0).cardinality(),
                     unimpAlign.getAllelePresenceForAllSites(taxon, 1).cardinality(), unkHets[0], unkHets[1]));
             boolean enoughData=(unimpAlign.getTotalNotMissingForTaxon(taxon)>minSitesPresent);
@@ -321,7 +331,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
                  //resorts to solving block by block, first by inbred, then by viterbi, and then by hybrid
                 if(inbredNN) {
                     impTaxon=applyBlockNN(impTaxon, taxon, donorAlign[da], donorOffset, regionHypthInbred, hybridNN, maskedTargetBits, 
-                            minMinorCnt, maxHybridErrorRate, donorIndices, blockNN);
+                            minMinorCnt, focusInbredErr, focusHybridErr, focusSmashErr, donorIndices, blockNN);
                 }   
                 if(impTaxon.isSegmentSolved()) {
 //                    System.out.printf("VertSolved da:%d L:%s%n",da, donorAlign[da].getLocus(0));
@@ -426,7 +436,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
         for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
         impT.setSegmentSolved(true);
-        return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT, false);
+        return setAlignmentWithDonors(donorAlign,vdh, donorOffset,false,impT, false, false);
     }
         
     /**
@@ -526,77 +536,64 @@ public class FILLINImputationPlugin extends AbstractPlugin {
      */ 
     private ImputedTaxon applyBlockNN(ImputedTaxon impT, int targetTaxon, 
             Alignment donorAlign, int donorOffset, DonorHypoth[][] regionHypth, boolean hybridMode, BitSet[] maskedTargetBits, 
-            int minMinorCnt, double maxHybridErrorRate, int[] donorIndices, int[] blockNN) {
+            int minMinorCnt, double focusInbredErr, double focusHybridErr, double focusSmashErr, int[] donorIndices, int[] blockNN) {
         int[] currBlocksSolved= new int[5];//track number of focus blocks solved in NN search for system out; index 0 is inbred, 1 is viterbi, 2 is smash, 3 is not solved, 4 is total for all modes
         int blocks=maskedTargetBits[0].getNumWords();
         for (int focusBlock = 0; focusBlock < blocks; focusBlock++) {
-            if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maximumInbredError)) {
-                setAlignmentWithDonors(donorAlign, regionHypth[focusBlock],donorOffset, true,impT, false);
-                impT.incBlocksSolved();
-                currBlocksSolved[0]++;
-                currBlocksSolved[4]++;
-                
-            }  else if (focusBlockViterbi&&(regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()>maximumInbredError)){ //go into focus block viterbi
-                int[] d= getUniqueDonorsForBlock(regionHypth,focusBlock);//get the donor indices for that block from regionHypoth
-                int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
-                if(resultRange==null) {continue; } //no data in the focus Block
-                //search for the best hybrid donors for a segment
-                DonorHypoth[] best2donors=getBestHybridDonors(targetTaxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
+            boolean vit= false;//just if viterbi works for this block
+            int[] d= getUniqueDonorsForBlock(regionHypth,focusBlock);//get the donor indices for that block from regionHypoth
+            int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
+            if(resultRange==null) {continue; } //no data in the focus Block
+            //search for the best hybrid donors for a segment
+            DonorHypoth[] best2donors=getBestHybridDonors(targetTaxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
                     maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], focusBlock, donorAlign, d, d, true);
-                
-                ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
+
+            //check for Viterbi and inbred
+            ArrayList<DonorHypoth> goodDH= new ArrayList<DonorHypoth>(); //KLS0201
+            if (best2donors[0].getErrorRate()<focusInbredErr) {
                 for (DonorHypoth dh : best2donors) {
-                    if((dh!=null)&&(dh.getErrorRate()<maxErrorRateForFocusViterbi)) {
-                        if(dh.isInbred()==false){
-                            DonorHypoth useDH=getStateBasedOnViterbi(dh, donorOffset, donorAlign, true, transitionFocus);
-                            if(useDH!=null) {goodDH.add(useDH); impT.incBlocksSolved(); currBlocksSolved[1]++;currBlocksSolved[4]++; break;}
+                    if((dh!=null)) {
+                        if((dh.isInbred()==false)&&(dh.getErrorRate()<focusHybridErr)){
+                            dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
+                            if(dh!=null) vit= true;
                         }
+                    if(dh!=null&&(dh.getErrorRate()<focusInbredErr)) goodDH.add(dh);
                     }
                 }
-                if(goodDH.isEmpty()&&smashMode) {//smash mode goes into hybrid block NN
-                    //search for the best hybrid donors for a segment
-                    if(hybridMode&&(regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()>maximumInbredError)) {
-                        long[] mjTRange=maskedTargetBits[0].getBits(resultRange[0],resultRange[2]);
-                        long[] mnTRange=maskedTargetBits[1].getBits(resultRange[0],resultRange[2]);
-                        regionHypth[focusBlock]=getBestHybridDonors(targetTaxon, mjTRange, mnTRange, resultRange[0],resultRange[2], 
-                                focusBlock, donorAlign, regionHypth[focusBlock], false, donorIndices);
+                if (goodDH.size()!=0) {
+                    DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+                    for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+                    regionHypth[focusBlock]= vdh;
+                    impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true, impT, false, false);
+                    impT.incBlocksSolved(); 
+                    if(vit==true) {currBlocksSolved[1]++;} else {currBlocksSolved[0]++;}
+                    currBlocksSolved[4]++; continue;
                     }
-              //      if((regionHypth[focusBlock][0]!=null)) System.out.printf("%d %d %g %n",targetTaxon, focusBlock, regionHypth[focusBlock][0].getErrorRate() );
-                    if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maxHybridErrorRate)) {
-                        setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, smashMode);//only set donors for focus block
-                        impT.incBlocksSolved();
-                        currBlocksSolved[2]++;
-                        currBlocksSolved[4]++;
-                    }
-                } else if (goodDH.isEmpty()) {currBlocksSolved[3]++; continue;} 
-                
-                
-            }  else if (!focusBlockViterbi) {//keep this here for now to compare with base imputation
-                int[] resultRange=getBlockWithMinMinorCount(maskedTargetBits[0].getBits(),
-                        maskedTargetBits[1].getBits(), focusBlock, minMinorCnt);
-                if(resultRange==null) {continue; }//no data in the focus Block
-                 //search for the best hybrid donors for a segment
-                if(hybridMode&&(regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()>maximumInbredError)) {
-                    long[] mjTRange=maskedTargetBits[0].getBits(resultRange[0],resultRange[2]);
-                    long[] mnTRange=maskedTargetBits[1].getBits(resultRange[0],resultRange[2]);
-                    regionHypth[focusBlock]=getBestHybridDonors(targetTaxon, mjTRange, mnTRange, resultRange[0],resultRange[2], 
-                            focusBlock, donorAlign, regionHypth[focusBlock], false, donorIndices);
-                }
-          //      if((regionHypth[focusBlock][0]!=null)) System.out.printf("%d %d %g %n",targetTaxon, focusBlock, regionHypth[focusBlock][0].getErrorRate() );
-                if((regionHypth[focusBlock][0]!=null)&&(regionHypth[focusBlock][0].getErrorRate()<maxHybridErrorRate)) {
-                    setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, false);
-                    impT.incBlocksSolved();
-                }
-                    
             }
+            //if fails, try smash mode
+            else if (hybridMode&&(best2donors[0].getErrorRate()<focusSmashErr)) {//smash mode goes into hybrid block NN
+                for (DonorHypoth dh:best2donors) {
+                    if(dh!=null&&dh.getErrorRate()<focusSmashErr) {
+                        goodDH.add(dh);
+                    }
+                    if (goodDH.size()!=0) {
+                        DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+                        for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+                        regionHypth[focusBlock]= vdh;
+                        impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, true, true);//only set donors for focus block //KLS0201
+                        impT.incBlocksSolved(); currBlocksSolved[2]++; currBlocksSolved[4]++; continue;
+                    }
+                }
+            //if fails, do not impute this focus block    
+            } else currBlocksSolved[3]++;
         }
+        
         if (currBlocksSolved[4]!=0) impT.setSegmentSolved(true);
         else impT.setSegmentSolved(false);
-        int leftNullCnt=0;
-        for (DonorHypoth[] dh : regionHypth) {if(dh[0]==null) leftNullCnt++;}
+        int leftNullCnt=currBlocksSolved[3];
         if(testing==1)
             System.out.printf("targetTaxon:%d hybridError:%g block:%d proportionBlocksImputed:%d null:%d inbredDone:%d viterbiDone:%d hybridDone:%d noData:%d %n",
-                targetTaxon, maxHybridErrorRate, blocks,currBlocksSolved[4]/blocks, leftNullCnt, currBlocksSolved[0], currBlocksSolved[1], currBlocksSolved[2], currBlocksSolved[3]);
+                targetTaxon, focusHybridErr, blocks,currBlocksSolved[4]/blocks, leftNullCnt, currBlocksSolved[0], currBlocksSolved[1], currBlocksSolved[2], currBlocksSolved[3]);
         for (int i = 0; i < currBlocksSolved.length; i++) {blockNN[i]+= currBlocksSolved[i];}
         return impT;
     }
@@ -949,7 +946,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
     
     
     private ImputedTaxon setAlignmentWithDonors(Alignment donorAlign, DonorHypoth[] theDH, int donorOffset,
-            boolean setJustFocus, ImputedTaxon impT, boolean smashOn) {
+            boolean setJustFocus, ImputedTaxon impT, boolean smashOn, boolean hetsMiss) {
         if(theDH[0].targetTaxon<0) return impT;
         boolean print=false;
         int startSite=(setJustFocus)?theDH[0].getFocusStartSite():theDH[0].startSite;
@@ -1010,10 +1007,9 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             String donorEstString= NucleotideAlignmentConstants.getNucleotideIUPAC(donorEst);
             if(knownBase==Alignment.UNKNOWN_DIPLOID_ALLELE) {
                 if (AlignmentUtils.isHeterozygous(donorEst)) {
-                    if (smashOn) {//if hybrid on, but not 2pq, and wants to impute to het, just set to missing
+                    if (smashOn && hetsMiss) {//if imputing a heterozygote, just set to missing
                         impT.resolveGeno[cs+donorOffset]= knownBase;
                         //System.out.println("SetToMissing"+":"+theDH[0].targetTaxon+":"+cs+donorOffset+":"+knownBaseString+":"+donorEstString);
-                        toMissing++;
                     }
                     else impT.resolveGeno[cs+donorOffset]= donorEst; //if not in hybrid, set to het
                 }
@@ -1114,7 +1110,11 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         engine.add("-minMnCnt", "--minMnCnt", true);
         engine.add("-mxInbErr", "--mxInbErr", true);
         engine.add("-mxHybErr", "--mxHybErr", true);
-        engine.add("-mxVitFocusErr","--mxVitFocusErr", true);
+        engine.add("-mxVitFocusErr","--mxVitFocusErr", false);
+        engine.add("-mxInbFocusErr","--mbIndFocusErr", false);
+        engine.add("-mxComFocusErr","--mxComFocusErr", false);
+        engine.add("-mxInbFocusErrHet","--mxInbFocusErrHet", false);
+        engine.add("-mxComFocusErrHet","--mxComFocusErrHet", false);
         engine.add("-inbNNOff", "--inbNNOff", false);
         engine.add("-hybNNOff", "--hybNNOff", false);
         engine.add("-mxDonH", "--mxDonH", true);
@@ -1138,7 +1138,19 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             maxHybridErrorRate = Double.parseDouble(engine.getString("-mxHybErr"));
         }
         if (engine.getBoolean("-mxVitFocusErr")) {
-            maxErrorRateForFocusViterbi = Double.parseDouble(engine.getString("-mxVitFocusErr"));
+            maxHybridErrFocusHomo = Double.parseDouble(engine.getString("-mxVitFocusErr"));
+        }
+        if (engine.getBoolean("-mxInbFocusErr")) {
+            maxInbredErrFocusHomo = Double.parseDouble(engine.getString("-mxInbFocusErr"));
+        }
+        if (engine.getBoolean("-mxComFocusErr")) {
+            maxSmashErrFocusHomo = Double.parseDouble(engine.getString("-mxComFocusErr"));
+        }
+        if (engine.getBoolean("-mxInbFocusErrHet")) {
+            maxInbredErrFocusHet = Double.parseDouble(engine.getString("-mxInbFocusErrHet"));
+        }
+        if (engine.getBoolean("-mxComFocusErrHet")) {
+            maxSmashErrFocusHomo = Double.parseDouble(engine.getString("-mxComFocusErrHet"));
         }
         if (engine.getBoolean("-minMnCnt")) {
             minMinorCnt = Integer.parseInt(engine.getString("-minMnCnt"));
@@ -1167,11 +1179,15 @@ public class FILLINImputationPlugin extends AbstractPlugin {
                 + "-sC    Start chromosome\n"
                 + "-eC    End chromosome\n"
                 + "-minMnCnt    Minor number of minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)\n"
-                + "-mxInbErr    Maximum inbred error rate\n"
-                + "-mxHybErr    Maximum hybrid error rate\n"
-                +"-mxVitFocusErr    Maximum error rate to use Viterbi for focus blocks. Higher due to num sites compared. (default:"+maxErrorRateForFocusViterbi+")\n"
-                + "-inbNNOff    Whether to use inbred NN (default:"+inbredNN+")\n"
-                + "-hybNNOff    Whether to use both the hybrid NN. This attempts inbred, viterbi, and hybrid combination mode in that order by focus block (default:"+hybridNN+")\n"
+                + "-mxInbErr    Maximum inbred error rate (default:"+maximumInbredError+"\n"
+                + "-mxHybErr    Maximum hybrid error rate (default:"+maxHybridErrorRate+"\n"
+                +"-mxVitFocusErr    Maximum error rate to use Viterbi for focus blocks (default:"+maxHybridErrFocusHomo+")\n"
+                +"-mxInbFocusErr    Maximum error rate to use inbred for focus blocks (default:"+maxInbredErrFocusHomo+")\n"
+                +"-mxComFocusErr    Maximum error rate to use two haplotype combination for focus blocks (default:"+maxSmashErrFocusHomo+")\n"
+                +"-mxInbFocusErrHet    Maximum error rate to use inbred for focus blocks (default:"+maxInbredErrFocusHet+")\n"
+                +"-mxComFocusErrHet    Maximum error rate to use two haplotype combination for focus blocks (default:"+maxSmashErrFocusHet+")\n"
+                + "-inbNNOff    Whether to attempt to impute by focus block (default:"+inbredNN+")\n"
+                + "-hybNNOff    Whether to use the two haplotype combination for focus blocks. If true, this attempts inbred, viterbi, and two haplotype combination mode in that order by focus block (default:"+hybridNN+")\n"
                 + "-mxDonH   Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
                 + "-mnTestSite   Minimum number of sites to test for NN IBD (default:"+minTestSites+")\n"
                 + "-projA   Create a projection alignment for high density markers (default off)\n"
