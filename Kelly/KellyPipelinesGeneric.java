@@ -120,15 +120,21 @@ public class KellyPipelinesGeneric {
    public static void runFILLINImputationPlugin() {
        String depth= "7";
        String denom= "7";
-       String dataset= "12S_RIMMA_Span";//12S_RIMMA_Span 282All ExPVPIowa481 NAM.rils.parents LessThan.01Het 12S_RIMMA_Span_SEED
+       String dataset= "ExPVPIowa481";//12S_RIMMA_Span 282All ExPVPIowa481 NAM.rils.parents LessThan.01Het 12S_RIMMA_Span_SEED
        String which= "100";
 //       String dir= "/home/kls283/Documents/Imputation/";//cbsu
        String dir= "/Users/kls283/Desktop/Imputation/";//laptop
+       String mxFocHy= ".001";
+       String mxFocIn= ".005";
+       String mxFocSm= ".01";
+       String donorType= "Final2Std"; //PhasedBeagle Std
        
        //standard runs, whole genome
        String masked= dir+"AllZeaGBS_v2.7wDepth_masked_Depth"+depth+"_Denom"+denom+"StrictSubsetBy"+dataset+"NoIndelsMinTCov0.1MinSCov0.1Poly.hmp.txt.gz";
        String keyFile= dir+"AllZeaGBS_v2.7wDepth_maskKey_Depth"+depth+"_Denom"+denom+"StrictSubsetBy"+dataset+".hmp.h5";
        String donor= dir+"donors/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7Match"+dataset+"_HaplotypeStd8k.gX.hmp.txt";
+//       donor= dir+"donors/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7withBeaglePhasedHapsFor12S_RIMMA_Span_SEEDMatch12S_RIMMA_SpanNoIndelsMinTCov0.1MinSCov0.1Polychr10_HaplotypeStd8k.gX.hmp.txt";
+//       donor= dir+"donors/AllZeaGBS_v2.7wDepth_masked_Depth7_Denom7MatchNAM.rils.parentsNoIndelsMinTCov0.0MinSCov0.0Poly_HaplotypeStd8k.gX.hmp.txt";
        
 //       //for use of no external info donors
 //       String masked= dir+"AllZeaGBS_v2.7wDepth_masked_Depth"+depth+"_Denom"+denom+"StrictSubsetBy"+dataset+".rand"+which+"NoIndelsMinTCov0.1MinSCov0.1Polychr10.hmp.h5";
@@ -155,7 +161,7 @@ public class KellyPipelinesGeneric {
        for (int i = 0; i < minMnCnt.length; i++) {
            for (int j = 0; j < mxInbErr.length; j++) {
                for (int k = 0; k < mxHybErr.length; k++) {//FocusSmashBestMax20PQResolveToMissingF.3
-            String out= masked.substring(0, masked.indexOf(".hmp"))+".8kStdDonorFRFocusToMiss_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
+            String out= masked.substring(0, masked.indexOf(".hmp"))+".8k"+donorType+"DonorFRFocusToMiss_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".mxFocInErr"+mxFocIn+".mxFocHybErr"+mxFocHy+".mxFocSmErr"+mxFocSm+".hmp.h5";   
 //            String out= masked.substring(0, masked.indexOf(".hmp"))+".8kOnlyInputDonorFRFocusToMiss_imp.minCnt"+minMnCnt[i]+".mxInbErr"+mxInbErr[j]+".mxHybErr"+mxHybErr[k]+".hmp.h5";   
             String[] testArgs = new String[] {
                  "-hmp",   masked, //Input HapMap file(s) 'c+' to denote variable chromosomes\n"
